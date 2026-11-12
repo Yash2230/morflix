@@ -217,24 +217,26 @@ img.emoji{height:1.3em;width:1.3em;vertical-align:-.28em;margin:0 .04em}
 </div>
 
 <div id="lb" hidden></div>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@twemoji/api@15.0.3/dist/twemoji.min.js" crossorigin="anonymous"></script>
 <script>
 /* ============ EDIT THIS ============ */
 const CONFIG={
-  title:"Balbir Army: Ghostxday",
-  description:"A MorFlix original, made by Raunak Kumar.",
-  premiere:"2026-11-12T20:15:00+05:30",   // 6:45 PM IST. Change the DATE to your premiere day.
+  title:"Your Movie Title",
+  description:"A MorFlix original, made for the Discord crew.",
+  premiere:"2026-11-12T20:15:00+05:30",   // 8:15 PM IST. Change the DATE to your premiere day.
   durationSec:null,                        // optional: movie length in seconds (e.g. 990) as a safety net
   poster:"",                               // optional image URL for the countdown screen
   tudumUrl:"",                             // optional: your own sound file, else a synthesized tudum plays
   sources:[                                // best quality first; add/remove freely
-    {label:"720p",url:"PASTE_PUBLIC_DRIVE_LINK_HERE"},
-    {label:"480p", url:""}
+    {label:"1080p",url:"PASTE_PUBLIC_DRIVE_LINK_HERE"},
+    {label:"720p", url:""}
   ],
   downloadUrl:"",                          // optional; defaults to the first source
-  firebase:{apiKey:"",authDomain:"",databaseURL:"",projectId:"",appId:""}
+  /* Realtime: no database or account needed. Everyone on the same "room" sees the same chat,
+     live count and likes through a free public MQTT broker. Change the room to any random
+     string so strangers can't stumble into it. */
+  room:"mf-premiere-k7q2x9"
 };
 /* =================================== */
 
@@ -242,14 +244,12 @@ const $=s=>document.querySelector(s),TEST=new URLSearchParams(location.search).h
 const S=CONFIG.sources.filter(s=>s.url&&!/PASTE/.test(s.url));
 const ls={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
 const uid=ls.get('mf_uid')||(Math.random().toString(36).slice(2)+Date.now().toString(36));ls.set('mf_uid',uid);
-const cid=Math.random().toString(36).slice(2);
-let name='',db=null,off=0;
-try{if(window.firebase&&CONFIG.firebase.databaseURL){firebase.initializeApp(CONFIG.firebase);db=firebase.database();db.ref('.info/serverTimeOffset').on('value',s=>off=s.val()||0)}}catch(e){db=null}
-const now=()=>TEST?Date.now():Date.now()+off;
+const cid=Math.random().toString(36).slice(2,10);
+let name='',off=0;
+const now=()=>Date.now()+off;
 const P=TEST?Date.now()+25000:Date.parse(CONFIG.premiere);
-const ref=p=>db.ref((TEST?'test/':'main/')+p);
 const v=$('#v'),seek=$('#seek'),player=$('#player');
-let dur=CONFIG.durationSec||0,ph='',follow=true,ready=false,drag=false,resume=null,resumePlay=true,qi=0,fbMode=false,errs=0,views=0,likes=0,liked=false;
+let dur=CONFIG.durationSec||0,ph='',follow=true,ready=false,drag=false,resume=null,resumePlay=true,qi=0,fbMode=false,errs=0;
 
 const fmt=s=>{s=Math.max(0,Math.floor(s||0));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return(h?h+':'+String(m).padStart(2,'0'):m)+':'+String(x).padStart(2,'0')};
 const hms=s=>{const d=Math.floor(s/86400);s%=86400;const p=n=>String(n).padStart(2,'0');return(d?d+'d ':'')+p(Math.floor(s/3600))+':'+p(Math.floor(s%3600/60))+':'+p(s%60)};
@@ -304,8 +304,7 @@ v.addEventListener('loadedmetadata',()=>{errs=0;$('#note').hidden=true;dur=v.dur
 v.addEventListener('error',()=>{if(!S.length)return;errs++;
   if(errs>=3&&driveId(S[qi].url)){fbMode=true;v.hidden=true;const f=$('#fb');f.src='https://drive.google.com/file/d/'+driveId(S[qi].url)+'/preview';f.hidden=false;$('#bar').hidden=true;$('#note').hidden=false;return}
   $('#note').hidden=false;$('#note').textContent='Re-establishing the stream…';setTimeout(()=>{resume=v.currentTime>1?v.currentTime:null;v.load()},3000)});
-v.addEventListener('play',()=>{$('#big').hidden=true;$('#pp').innerHTML=ic('pause');
-  if(db&&!ls.get('mf_v_'+(TEST?'t':'m'))){ls.set('mf_v_'+(TEST?'t':'m'),'1');ref('views').transaction(x=>(x||0)+1)}});
+v.addEventListener('play',()=>{$('#big').hidden=true;$('#pp').innerHTML=ic('pause');countView()});
 v.addEventListener('pause',()=>{$('#pp').innerHTML=ic('play');if(!v.ended)follow=false});
 v.addEventListener('playing',()=>{$('#big').hidden=true});
 const toggle=()=>{v.paused?v.play().catch(()=>{}):v.pause()};
@@ -352,9 +351,26 @@ function tick(){try{
   $('#tm').textContent=fmt(t)+' / '+fmt(dur);
 }catch(err){}}
 
-/* ---------- realtime: viewers, views, likes, chat, comments ---------- */
-const renderViews=()=>$('#views').innerHTML=ic('eye')+'<span>'+views.toLocaleString()+(views===1?' view':' views')+'</span>';
-const renderLike=()=>{$('#lk').className='chip'+(liked?' on':'');$('#lk').innerHTML=ic(liked?'heartF':'heart')+'<span>'+likes+'</span>'};
+/* ---------- realtime over a public MQTT broker (no database) ----------
+   Topics under B:  chat, comments, pres, like, view, req, sync
+   - chat/comments: each message is broadcast to everyone in the room
+   - pres: heartbeat every 8s, live count = unique viewers seen in the last 25s
+   - like/view: broadcast on change, merged into sets so duplicates never double count
+   - req/sync: a newcomer asks the room for history, one random peer answers with a snapshot
+   Nothing is stored on any server: if everyone leaves, the history is gone. */
+const B='morflix/'+CONFIG.room+'/'+(TEST?'t':'m')+'/';
+const BROKERS=['wss://broker.hivemq.com:8884/mqtt','wss://broker.emqx.io:8084/mqtt','wss://test.mosquitto.org:8081'];
+const chatLog=[],cmtLog=[],seen=new Set(),pres=new Map(),likesSet=new Set(),viewsSet=new Set(),pend={};
+let mq=null,bi=0,stopped=false,everConnected=false,gotSync=false,notedDown=false;
+const VKEY='mf_viewed_'+(TEST?'t':'m'),LKEY='mf_liked_'+(TEST?'t':'m');
+let viewed=ls.get(VKEY)==='1';
+if(ls.get(LKEY)==='1')likesSet.add(uid);
+
+const renderViews=()=>$('#views').innerHTML=ic('eye')+'<span>'+viewsSet.size.toLocaleString()+(viewsSet.size===1?' view':' views')+'</span>';
+const renderLike=()=>{const on=likesSet.has(uid);$('#lk').className='chip'+(on?' on':'');$('#lk').innerHTML=ic(on?'heartF':'heart')+'<span>'+likesSet.size+'</span>'};
+const showCount=()=>{const t=Date.now();for(const[k,x]of pres)if(t-x>25000)pres.delete(k);pres.set(cid,t);$('#vw').textContent=Math.max(1,pres.size)};
+const pub=(t,o)=>{try{if(mq&&mq.connected){mq.publish(B+t,JSON.stringify(o));return true}}catch(e){}return false};
+
 function addMsg(m,mine){if(!m||(!m.t&&!m.img))return;const l=$('#msgs'),near=l.scrollHeight-l.scrollTop-l.clientHeight<140;
   const d=document.createElement('div');d.className='m'+(mine?' me':'');const n=m.n||'?';
   const a=document.createElement('i');a.textContent=n[0].toUpperCase();a.style.background=hue(n);
@@ -365,28 +381,88 @@ function addMsg(m,mine){if(!m||(!m.t&&!m.img))return;const l=$('#msgs'),near=l.s
     im.onload=()=>{if(near)l.scrollTop=l.scrollHeight};w.appendChild(im)}
   d.append(a,w);l.appendChild(d);em(s);
   while(l.children.length>120)l.firstChild.remove();if(near)l.scrollTop=l.scrollHeight}
-function addCmt(m,local){if(!m||!m.t)return;const d=document.createElement('div');d.className='c';
+function addCmt(m){if(!m||!m.t)return;const d=document.createElement('div');d.className='c';
   const b=document.createElement('b'),s=document.createElement('small'),p=document.createElement('p');
   b.textContent=m.n;b.style.color=hue(m.n);s.textContent=ago(m.ts||now());p.textContent=m.t;d.append(b,s,p);$('#clist').prepend(d);em(d);
   $('#cth').textContent=$('#clist').children.length+' Comments'}
+const sys=t=>addMsg({n:'MorFlix',t});
+function renderChat(){$('#msgs').innerHTML='';sys('Welcome, '+name+'. The room is open.');chatLog.sort((a,b)=>a.ts-b.ts).forEach(m=>addMsg(m,m.u===uid))}
+function renderCmts(){$('#clist').innerHTML='';cmtLog.sort((a,b)=>a.ts-b.ts).forEach(addCmt)}
+
+/* validate anything that arrives from the network */
+function san(o,max){if(!o||typeof o!=='object')return null;
+  const id=typeof o.id==='string'?o.id.slice(0,32):'',n=typeof o.n==='string'?clean(o.n).slice(0,20):'',t=typeof o.t==='string'?clean(o.t).slice(0,max):'';
+  const ts=Number.isFinite(o.ts)?o.ts:Date.now(),u=typeof o.u==='string'?o.u.slice(0,40):'';
+  if(!id||!n)return null;const m={id,n,t,u,ts};
+  if(typeof o.img==='string'&&o.img.startsWith('data:image/jpeg;base64,')&&o.img.length<300000)m.img=o.img;
+  return(m.t||m.img)?m:null}
+function recv(kind,o){const m=san(o,kind==='chat'?200:300);if(!m||seen.has(m.id))return;seen.add(m.id);
+  if(kind==='chat'){chatLog.push(m);if(chatLog.length>120)chatLog.shift();addMsg(m,m.u===uid)}
+  else{cmtLog.push(m);if(cmtLog.length>150)cmtLog.shift();addCmt(m)}}
+function snapshot(to){const strip=m=>({id:m.id,n:m.n,u:m.u,ts:m.ts,t:m.t||'📷 image'});
+  return{to,chat:chatLog.slice(-80).map(strip),comments:cmtLog.slice(-100).map(strip),likes:[...likesSet].slice(0,500),views:[...viewsSet].slice(0,2000)}}
+function merge(o){gotSync=true;let c=0,k=0;
+  (Array.isArray(o.chat)?o.chat:[]).forEach(x=>{const m=san(x,200);if(m&&!seen.has(m.id)){seen.add(m.id);chatLog.push(m);c++}});
+  (Array.isArray(o.comments)?o.comments:[]).forEach(x=>{const m=san(x,300);if(m&&!seen.has(m.id)){seen.add(m.id);cmtLog.push(m);k++}});
+  (Array.isArray(o.likes)?o.likes:[]).forEach(u=>{if(typeof u==='string')likesSet.add(u.slice(0,40))});
+  (Array.isArray(o.views)?o.views:[]).forEach(u=>{if(typeof u==='string')viewsSet.add(u.slice(0,40))});
+  if(c)renderChat();if(k)renderCmts();renderLike();renderViews()}
+
+function onMsg(sub,o){if(!o||typeof o!=='object')return;
+  if(sub==='chat'||sub==='comments')recv(sub,o);
+  else if(sub==='pres'&&typeof o.c==='string'){if(o.bye)pres.delete(o.c);else pres.set(o.c,Date.now());showCount()}
+  else if(sub==='like'&&typeof o.u==='string'){o.l?likesSet.add(o.u.slice(0,40)):likesSet.delete(o.u.slice(0,40));renderLike()}
+  else if(sub==='view'&&typeof o.u==='string'){viewsSet.add(o.u.slice(0,40));renderViews()}
+  else if(sub==='req'&&typeof o.c==='string'&&o.c!==cid){
+    setTimeout(()=>pub('pres',{c:cid}),Math.random()*600);
+    if(pend[o.c]||chatLog.length+cmtLog.length+likesSet.size+viewsSet.size===0)return;
+    pend[o.c]=setTimeout(()=>{delete pend[o.c];pub('sync',snapshot(o.c))},150+Math.random()*1200)}
+  else if(sub==='sync'&&typeof o.to==='string'){
+    if(pend[o.to]){clearTimeout(pend[o.to]);delete pend[o.to]}
+    if(o.to===cid)merge(o)}}
+
+function announce(){
+  pub('pres',{c:cid});
+  if(viewed){viewsSet.add(uid);pub('view',{u:uid});renderViews()}
+  if(likesSet.has(uid))pub('like',{u:uid,l:true});
+  pub('req',{c:cid});
+  setTimeout(()=>{if(!gotSync)pub('req',{c:cid})},4000);
+  setTimeout(()=>{if(!gotSync)pub('req',{c:cid})},10000)}
+function connect(){
+  if(stopped)return;
+  if(!window.mqtt){if(!notedDown){notedDown=true;sys('Could not load the chat library. Check your connection and refresh.')}return}
+  const url=BROKERS[bi%BROKERS.length];let ok=false;
+  let c;try{c=mq=mqtt.connect(url,{clientId:'mf-'+cid+'-'+Math.random().toString(36).slice(2,6),clean:true,keepalive:30,connectTimeout:7000,reconnectPeriod:0,
+    will:{topic:B+'pres',payload:JSON.stringify({c:cid,bye:1}),qos:0}})}catch(e){bi++;setTimeout(connect,2000);return}
+  c.on('connect',()=>{ok=true;notedDown=false;c.subscribe(B+'#',{qos:0},err=>{if(err)return;
+    if(!everConnected){everConnected=true}else sys('Chat reconnected.');announce()})});
+  c.on('message',(t,p)=>{try{if(t.indexOf(B)!==0)return;onMsg(t.slice(B.length),JSON.parse(p.toString()))}catch(e){}});
+  c.on('error',()=>{});
+  c.on('close',()=>{if(mq!==c||stopped)return;
+    if(ok&&!notedDown){notedDown=true;sys('Chat disconnected. Reconnecting…')}
+    if(!ok)bi++;setTimeout(connect,ok?2000:1500)})}
+
 function boot(){
-  addMsg({n:'MorFlix',t:'Welcome, '+name+'. The room is open.'});
-  renderViews();renderLike();
-  if(!db){$('#vw').textContent='1';return}
-  db.ref('.info/connected').on('value',s=>{if(s.val()){const r=ref('presence/'+cid);r.onDisconnect().remove();r.set(true)}});
-  ref('presence').on('value',s=>$('#vw').textContent=Math.max(1,s.numChildren()));
-  ref('views').on('value',s=>{views=s.val()||0;renderViews()});
-  ref('likes').on('value',s=>{likes=s.numChildren();liked=s.hasChild(uid);renderLike()});
-  ref('chat').limitToLast(80).on('child_added',s=>addMsg(s.val(),s.val()&&s.val().u===uid));
-  ref('comments').limitToLast(100).on('child_added',s=>addCmt(s.val()));
+  sys('Welcome, '+name+'. The room is open.');
+  renderViews();renderLike();showCount();
+  connect();
+  setInterval(()=>pub('pres',{c:cid}),8000);
+  setInterval(showCount,3000);
+  addEventListener('pagehide',()=>{stopped=true;pub('pres',{c:cid,bye:1});try{mq&&mq.end(true)}catch(e){}});
 }
+function countView(){if(viewed)return;viewed=true;ls.set(VKEY,'1');viewsSet.add(uid);renderViews();pub('view',{u:uid})}
+
 let lastSend=0;
-const post=(path,text,img)=>{const t=clean(text).slice(0,path==='chat'?200:300);if(!t&&!img)return false;if(Date.now()-lastSend<(img?3000:1500))return false;lastSend=Date.now();
-  const m={n:name,t,u:uid,ts:db?firebase.database.ServerValue.TIMESTAMP:Date.now()};if(img)m.img=img;
-  if(db)ref(path).push(m).catch(()=>{});else path==='chat'?addMsg(m,true):addCmt(m);return true};
+const post=(path,text,img)=>{const t=clean(text).slice(0,path==='chat'?200:300);if(!t&&!img)return false;if(Date.now()-lastSend<(img?3000:1500))return false;
+  if(!mq||!mq.connected){sys('Still connecting to the chat server. Try again in a moment.');return false}
+  lastSend=Date.now();
+  const m={id:Math.random().toString(36).slice(2,12)+Date.now().toString(36),n:name,t,u:uid,ts:Date.now()};if(img)m.img=img;
+  seen.add(m.id);
+  if(path==='chat'){chatLog.push(m);addMsg(m,true)}else{cmtLog.push(m);addCmt(m)}
+  pub(path,m);return true};
 $('#cf').addEventListener('submit',e=>{e.preventDefault();if(post('chat',$('#ci').value))$('#ci').value='';$('#pk').hidden=true});
 $('#cform').addEventListener('submit',e=>{e.preventDefault();if(post('comments',$('#ct').value))$('#ct').value=''});
-$('#lk').onclick=()=>{liked=!liked;likes+=liked?1:-1;renderLike();if(liked)$('#lk svg').classList.add('pop');if(db)liked?ref('likes/'+uid).set(true):ref('likes/'+uid).remove()};
+$('#lk').onclick=()=>{const on=!likesSet.has(uid);on?likesSet.add(uid):likesSet.delete(uid);ls.set(LKEY,on?'1':'0');renderLike();if(on&&$('#lk svg'))$('#lk svg').classList.add('pop');pub('like',{u:uid,l:on})};
 /* ---------- icons, emoji, images ---------- */
 const st='fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
 const I={play:'<path d="M8 5v14l11-7z"/>',pause:'<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>',
