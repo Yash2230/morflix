@@ -218,6 +218,8 @@ img.emoji{height:1.3em;width:1.3em;vertical-align:-.28em;margin:0 .04em}
 </div>
 
 <div id="lb" hidden></div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@twemoji/api@15.0.3/dist/twemoji.min.js" crossorigin="anonymous"></script>
 <script>
@@ -234,6 +236,7 @@ const CONFIG={
     {label:"720p", url:""}
   ],
   downloadUrl:"",                          // optional; defaults to the first source
+  firebase:{apiKey:"AIzaSyDl03W4nF9PXNSnpUCZvb0hNIqumjjL7nE",authDomain:"nothing-bb231.firebaseapp.com",databaseURL:"https://nothing-bb231-default-rtdb.firebaseio.com",projectId:"nothing-bb231",appId:"1:722852782424:web:b05d461d94cff0c25d452d"},  // OPTIONAL: paste Firebase config here to use a database. Leave empty to run with no DB.
   room:"morflix-premiere-k7q2x9"          // any unique string. Everyone using the same value shares one chat room. No setup needed.
 };
 /* =================================== */
@@ -303,7 +306,7 @@ v.addEventListener('error',()=>{if(!S.length)return;errs++;
   if(errs>=3&&driveId(S[qi].url)){fbMode=true;v.hidden=true;const f=$('#fb');f.src='https://drive.google.com/file/d/'+driveId(S[qi].url)+'/preview';f.hidden=false;$('#bar').hidden=true;$('#note').hidden=false;return}
   $('#note').hidden=false;$('#note').textContent='Re-establishing the stream…';setTimeout(()=>{resume=v.currentTime>1?v.currentTime:null;v.load()},3000)});
 v.addEventListener('play',()=>{$('#big').hidden=true;$('#pp').innerHTML=ic('pause');
-  if(!H.views.has(uid)){H.views.add(uid);send({k:'view',u:uid},1);refresh();save();snap(1500)}});
+  if(!H.views.has(uid)){H.views.add(uid);send({k:'view',u:uid},1);if(fdb)fref('views/'+uid).set(true);refresh();save();snap(1500)}});
 v.addEventListener('pause',()=>{$('#pp').innerHTML=ic('play');if(!v.ended)follow=false});
 v.addEventListener('playing',()=>{$('#big').hidden=true});
 const toggle=()=>{v.paused?v.play().catch(()=>{}):v.pause()};
@@ -355,6 +358,8 @@ function tick(){try{
    travel through public brokers; history is kept in each browser and in a retained snapshot. */
 const ROOM='mf/'+CONFIG.room+(TEST?'-test':''),T_EV=ROOM+'/ev',T_ST=ROOM+'/state',LKEY='mf_state_'+ROOM;
 const BROKERS=['wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt','wss://test.mosquitto.org:8081'];
+let fdb=null;try{if(window.firebase&&CONFIG.firebase.databaseURL){firebase.initializeApp(CONFIG.firebase);fdb=firebase.database()}}catch(e){fdb=null}
+const fref=p=>fdb.ref((TEST?'test/':'main/')+p);
 const H={chat:[],cmts:[],likes:new Map(),views:new Set()},seen=new Set(),peers=new Map(),links=[];
 const byTs=(a,b)=>a.ts-b.ts||(a.id<b.id?-1:1);
 function norm(x){if(!x||typeof x!=='object'||typeof x.id!=='string'||typeof x.u!=='string')return null;
@@ -421,7 +426,16 @@ function onMsg(topic,buf){let d;try{d=JSON.parse(buf.toString())}catch(e){return
   else if(d.k==='bye'&&typeof d.c==='string')peers.delete(d.c);
   else if(d.k==='hi'&&d.c!==cid){if(typeof d.c==='string')peers.set(d.c,Date.now());setTimeout(hb,Math.random()*1500)}
   watching()}
-function connect(){status();if(!window.mqtt)return;
+function connectFB(){const e=$('#cst');
+  fdb.ref('.info/serverTimeOffset').on('value',s=>{const o=s.val()||0;if(!TEST&&Math.abs(o)>2000)off=o});
+  fdb.ref('.info/connected').on('value',s=>{const on=!!s.val();e.textContent=on?'● online':'connecting…';e.style.color=on?'#4ade80':'';
+    if(on){const r=fref('presence/'+cid);r.onDisconnect().remove();r.set(true)}});
+  fref('presence').on('value',s=>$('#vw').textContent=Math.max(1,s.numChildren()));
+  fref('views').on('value',s=>{Object.keys(s.val()||{}).forEach(u=>H.views.add(u));refresh();save()});
+  fref('likes').on('value',s=>{const o=s.val()||{};Object.entries(o).forEach(([u,x])=>applyLike(u,x.on,x.ts));refresh();save()});
+  fref('chat').limitToLast(80).on('child_added',s=>mergeChat([s.val()]));
+  fref('comments').limitToLast(100).on('child_added',s=>mergeCmts([s.val()]))}
+function connect(){if(fdb)return connectFB();status();if(!window.mqtt)return;
   BROKERS.forEach(u=>{try{const c=mqtt.connect(u,{clientId:'mf_'+cid+Math.random().toString(36).slice(2,6),clean:true,reconnectPeriod:4000,connectTimeout:10000,keepalive:30});
     c.on('connect',()=>{c.subscribe([T_EV,T_ST],{qos:0});c.publish(T_EV,JSON.stringify({k:'hi',c:cid}));status();snap(4000)});
     c.on('message',onMsg);c.on('close',status);c.on('error',()=>{});links.push(c)}catch(e){}});
@@ -436,10 +450,10 @@ let lastSend=0;
 const post=(path,text,img)=>{const t=clean(text).slice(0,path==='chat'?200:300);if(!t&&!img)return false;if(Date.now()-lastSend<(img?3000:1500))return false;lastSend=Date.now();
   const m={id:uid.slice(0,8)+Date.now().toString(36)+Math.random().toString(36).slice(2,6),n:name,t,u:uid,ts:now()};if(img)m.img=img;
   if(path==='chat')mergeChat([m]);else mergeCmts([m]);
-  send({k:path==='chat'?'chat':'cmt',m},1);save();snap(1200);return true};
+  send({k:path==='chat'?'chat':'cmt',m},1);if(fdb)fref(path).push(m).catch(()=>{});save();snap(1200);return true};
 $('#cf').addEventListener('submit',e=>{e.preventDefault();if(post('chat',$('#ci').value))$('#ci').value='';$('#pk').hidden=true});
 $('#cform').addEventListener('submit',e=>{e.preventDefault();if(post('comments',$('#ct').value))$('#ct').value=''});
-$('#lk').onclick=()=>{const on=!liked,ts=now();H.likes.set(uid,{on,ts});send({k:'like',u:uid,on,ts},1);refresh();if(on)$('#lk svg').classList.add('pop');save();snap(1500)};
+$('#lk').onclick=()=>{const on=!liked,ts=now();H.likes.set(uid,{on,ts});send({k:'like',u:uid,on,ts},1);if(fdb)fref('likes/'+uid).set({on,ts});refresh();if(on)$('#lk svg').classList.add('pop');save();snap(1500)};
 /* ---------- icons, emoji, images ---------- */
 const st='fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
 const I={play:'<path d="M8 5v14l11-7z"/>',pause:'<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>',
