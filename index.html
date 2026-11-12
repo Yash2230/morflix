@@ -92,6 +92,7 @@ input[type=range]::-moz-range-thumb{width:13px;height:13px;border:0;border-radiu
 .chat{grid-column:2;grid-row:1;position:relative;min-height:0;background:var(--panel);border-radius:16px;overflow:hidden}
 .chat>.in{position:absolute;inset:0;display:flex;flex-direction:column}
 .chat h3{display:flex;align-items:center;gap:10px;padding:18px 20px 8px;font-size:11px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:#a1a1aa}
+#cst{margin-left:auto;font-weight:400;letter-spacing:0;text-transform:none;font-size:11px;color:var(--mut)}
 .chat h3:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--red);box-shadow:0 0 10px var(--red);animation:pl 1.2s infinite}
 @keyframes pl{50%{opacity:.3}}
 #msgs{flex:1;overflow-y:auto;padding:10px 20px 14px;display:flex;flex-direction:column;gap:12px;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#ffffff26 #0000}
@@ -192,7 +193,7 @@ img.emoji{height:1.3em;width:1.3em;vertical-align:-.28em;margin:0 .04em}
     </div>
     </div>
     <aside class="chat"><div class="in">
-      <h3 id="chTitle">Live chat</h3>
+      <h3><span id="chTitle">Live chat</span><span id="cst"></span></h3>
       <div id="msgs"></div>
       <form class="send" id="cf"><button type="button" class="ic" id="eb" aria-label="Emoji"></button><button type="button" class="ic" id="ib" aria-label="Send image"></button><input id="ci" maxlength="200" placeholder="Join the conversation…" autocomplete="off"><button class="go" id="sendb" aria-label="Send"></button><input type="file" id="fi" accept="image/*" hidden><div id="pk" hidden></div></form>
     </div></aside>
@@ -229,14 +230,11 @@ const CONFIG={
   poster:"",                               // optional image URL for the countdown screen
   tudumUrl:"",                             // optional: your own sound file, else a synthesized tudum plays
   sources:[                                // best quality first; add/remove freely
-    {label:"720p",url:"PASTE_PUBLIC_DRIVE_LINK_HERE"},
-    {label:"480p", url:""}
+    {label:"1080p",url:"PASTE_PUBLIC_DRIVE_LINK_HERE"},
+    {label:"720p", url:""}
   ],
   downloadUrl:"",                          // optional; defaults to the first source
-  /* Realtime: no database or account needed. Everyone on the same "room" sees the same chat,
-     live count and likes through a free public MQTT broker. Change the room to any random
-     string so strangers can't stumble into it. */
-  room:"mf-premiere-k7q2x9"
+  room:"morflix-premiere-k7q2x9"          // any unique string. Everyone using the same value shares one chat room. No setup needed.
 };
 /* =================================== */
 
@@ -244,12 +242,12 @@ const $=s=>document.querySelector(s),TEST=new URLSearchParams(location.search).h
 const S=CONFIG.sources.filter(s=>s.url&&!/PASTE/.test(s.url));
 const ls={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
 const uid=ls.get('mf_uid')||(Math.random().toString(36).slice(2)+Date.now().toString(36));ls.set('mf_uid',uid);
-const cid=Math.random().toString(36).slice(2,10);
+const cid=Math.random().toString(36).slice(2);
 let name='',off=0;
-const now=()=>Date.now()+off;
+const now=()=>TEST?Date.now():Date.now()+off;
 const P=TEST?Date.now()+25000:Date.parse(CONFIG.premiere);
 const v=$('#v'),seek=$('#seek'),player=$('#player');
-let dur=CONFIG.durationSec||0,ph='',follow=true,ready=false,drag=false,resume=null,resumePlay=true,qi=0,fbMode=false,errs=0;
+let dur=CONFIG.durationSec||0,ph='',follow=true,ready=false,drag=false,resume=null,resumePlay=true,qi=0,fbMode=false,errs=0,views=0,likes=0,liked=false;
 
 const fmt=s=>{s=Math.max(0,Math.floor(s||0));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return(h?h+':'+String(m).padStart(2,'0'):m)+':'+String(x).padStart(2,'0')};
 const hms=s=>{const d=Math.floor(s/86400);s%=86400;const p=n=>String(n).padStart(2,'0');return(d?d+'d ':'')+p(Math.floor(s/3600))+':'+p(Math.floor(s%3600/60))+':'+p(s%60)};
@@ -304,7 +302,8 @@ v.addEventListener('loadedmetadata',()=>{errs=0;$('#note').hidden=true;dur=v.dur
 v.addEventListener('error',()=>{if(!S.length)return;errs++;
   if(errs>=3&&driveId(S[qi].url)){fbMode=true;v.hidden=true;const f=$('#fb');f.src='https://drive.google.com/file/d/'+driveId(S[qi].url)+'/preview';f.hidden=false;$('#bar').hidden=true;$('#note').hidden=false;return}
   $('#note').hidden=false;$('#note').textContent='Re-establishing the stream…';setTimeout(()=>{resume=v.currentTime>1?v.currentTime:null;v.load()},3000)});
-v.addEventListener('play',()=>{$('#big').hidden=true;$('#pp').innerHTML=ic('pause');countView()});
+v.addEventListener('play',()=>{$('#big').hidden=true;$('#pp').innerHTML=ic('pause');
+  if(!H.views.has(uid)){H.views.add(uid);send({k:'view',u:uid},1);refresh();save();snap(1500)}});
 v.addEventListener('pause',()=>{$('#pp').innerHTML=ic('play');if(!v.ended)follow=false});
 v.addEventListener('playing',()=>{$('#big').hidden=true});
 const toggle=()=>{v.paused?v.play().catch(()=>{}):v.pause()};
@@ -351,26 +350,28 @@ function tick(){try{
   $('#tm').textContent=fmt(t)+' / '+fmt(dur);
 }catch(err){}}
 
-/* ---------- realtime over a public MQTT broker (no database) ----------
-   Topics under B:  chat, comments, pres, like, view, req, sync
-   - chat/comments: each message is broadcast to everyone in the room
-   - pres: heartbeat every 8s, live count = unique viewers seen in the last 25s
-   - like/view: broadcast on change, merged into sets so duplicates never double count
-   - req/sync: a newcomer asks the room for history, one random peer answers with a snapshot
-   Nothing is stored on any server: if everyone leaves, the history is gone. */
-const B='morflix/'+CONFIG.room+'/'+(TEST?'t':'m')+'/';
-const BROKERS=['wss://broker.hivemq.com:8884/mqtt','wss://broker.emqx.io:8084/mqtt','wss://test.mosquitto.org:8081'];
-const chatLog=[],cmtLog=[],seen=new Set(),pres=new Map(),likesSet=new Set(),viewsSet=new Set(),pend={};
-let mq=null,bi=0,stopped=false,everConnected=false,gotSync=false,notedDown=false;
-const VKEY='mf_viewed_'+(TEST?'t':'m'),LKEY='mf_liked_'+(TEST?'t':'m');
-let viewed=ls.get(VKEY)==='1';
-if(ls.get(LKEY)==='1')likesSet.add(uid);
+/* ---------- realtime (serverless): free public MQTT brokers, zero setup ----------
+   Everyone who opens the page joins the same room. Chat, likes, views and the live count
+   travel through public brokers; history is kept in each browser and in a retained snapshot. */
+const ROOM='mf/'+CONFIG.room+(TEST?'-test':''),T_EV=ROOM+'/ev',T_ST=ROOM+'/state',LKEY='mf_state_'+ROOM;
+const BROKERS=['wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt','wss://test.mosquitto.org:8081'];
+const H={chat:[],cmts:[],likes:new Map(),views:new Set()},seen=new Set(),peers=new Map(),links=[];
+const byTs=(a,b)=>a.ts-b.ts||(a.id<b.id?-1:1);
+function norm(x){if(!x||typeof x!=='object'||typeof x.id!=='string'||typeof x.u!=='string')return null;
+  const m={id:x.id.slice(0,60),u:x.u.slice(0,60),n:clean(String(x.n||'')).slice(0,20)||'?',t:clean(String(x.t||'')).slice(0,300),ts:Number.isFinite(+x.ts)?+x.ts:Date.now()};
+  if(typeof x.img==='string'&&x.img.startsWith('data:image/jpeg;base64,')&&x.img.length<=160000)m.img=x.img;
+  return(m.t||m.img)?m:null}
+try{const o=JSON.parse(ls.get(LKEY)||'null');if(o){
+  (o.chat||[]).map(norm).filter(Boolean).forEach(m=>{H.chat.push(m);seen.add(m.id)});
+  (o.cmts||[]).map(norm).filter(Boolean).forEach(m=>{H.cmts.push(m);seen.add(m.id)});
+  Object.entries(o.likes||{}).forEach(([u,x])=>applyLike(u,x&&x.on,x&&x.ts));
+  (o.views||[]).forEach(u=>typeof u==='string'&&H.views.add(u.slice(0,60)));
+  H.chat.sort(byTs);H.cmts.sort(byTs)}}catch(e){}
 
-const renderViews=()=>$('#views').innerHTML=ic('eye')+'<span>'+viewsSet.size.toLocaleString()+(viewsSet.size===1?' view':' views')+'</span>';
-const renderLike=()=>{const on=likesSet.has(uid);$('#lk').className='chip'+(on?' on':'');$('#lk').innerHTML=ic(on?'heartF':'heart')+'<span>'+likesSet.size+'</span>'};
-const showCount=()=>{const t=Date.now();for(const[k,x]of pres)if(t-x>25000)pres.delete(k);pres.set(cid,t);$('#vw').textContent=Math.max(1,pres.size)};
-const pub=(t,o)=>{try{if(mq&&mq.connected){mq.publish(B+t,JSON.stringify(o));return true}}catch(e){}return false};
-
+const renderViews=()=>$('#views').innerHTML=ic('eye')+'<span>'+views.toLocaleString()+(views===1?' view':' views')+'</span>';
+const renderLike=()=>{$('#lk').className='chip'+(liked?' on':'');$('#lk').innerHTML=ic(liked?'heartF':'heart')+'<span>'+likes+'</span>'};
+function refresh(){views=H.views.size;likes=[...H.likes.values()].filter(x=>x.on).length;const me=H.likes.get(uid);liked=!!(me&&me.on);renderViews();renderLike()}
+function applyLike(u,on,ts){if(typeof u!=='string'||!Number.isFinite(+ts))return;const o=H.likes.get(u);if(!o||+ts>o.ts)H.likes.set(u,{on:!!on,ts:+ts})}
 function addMsg(m,mine){if(!m||(!m.t&&!m.img))return;const l=$('#msgs'),near=l.scrollHeight-l.scrollTop-l.clientHeight<140;
   const d=document.createElement('div');d.className='m'+(mine?' me':'');const n=m.n||'?';
   const a=document.createElement('i');a.textContent=n[0].toUpperCase();a.style.background=hue(n);
@@ -383,86 +384,62 @@ function addMsg(m,mine){if(!m||(!m.t&&!m.img))return;const l=$('#msgs'),near=l.s
   while(l.children.length>120)l.firstChild.remove();if(near)l.scrollTop=l.scrollHeight}
 function addCmt(m){if(!m||!m.t)return;const d=document.createElement('div');d.className='c';
   const b=document.createElement('b'),s=document.createElement('small'),p=document.createElement('p');
-  b.textContent=m.n;b.style.color=hue(m.n);s.textContent=ago(m.ts||now());p.textContent=m.t;d.append(b,s,p);$('#clist').prepend(d);em(d);
-  $('#cth').textContent=$('#clist').children.length+' Comments'}
-const sys=t=>addMsg({n:'MorFlix',t});
-function renderChat(){$('#msgs').innerHTML='';sys('Welcome, '+name+'. The room is open.');chatLog.sort((a,b)=>a.ts-b.ts).forEach(m=>addMsg(m,m.u===uid))}
-function renderCmts(){$('#clist').innerHTML='';cmtLog.sort((a,b)=>a.ts-b.ts).forEach(addCmt)}
+  b.textContent=m.n;b.style.color=hue(m.n);s.textContent=ago(m.ts||now());p.textContent=m.t;d.append(b,s,p);$('#clist').prepend(d);em(d)}
+function renderChat(){const l=$('#msgs');l.innerHTML='';addMsg({n:'MorFlix',t:'Welcome, '+name+'. The room is open.'});H.chat.forEach(m=>addMsg(m,m.u===uid));l.scrollTop=l.scrollHeight}
+function renderCmts(){$('#clist').innerHTML='';H.cmts.forEach(addCmt);$('#cth').textContent=H.cmts.length+' Comments'}
+function mergeChat(list){const last=H.chat.length?H.chat[H.chat.length-1].ts:-1,add=[];
+  for(const x of list){const m=norm(x);if(!m||seen.has(m.id))continue;seen.add(m.id);H.chat.push(m);add.push(m)}
+  if(!add.length)return;H.chat.sort(byTs);if(H.chat.length>200)H.chat=H.chat.slice(-200);
+  if(add.some(m=>m.ts<last))renderChat();else add.sort(byTs).forEach(m=>addMsg(m,m.u===uid));save()}
+function mergeCmts(list){let n=0;for(const x of list){const m=norm(x);if(!m||seen.has(m.id))continue;seen.add(m.id);H.cmts.push(m);n++}
+  if(!n)return;H.cmts.sort(byTs);if(H.cmts.length>200)H.cmts=H.cmts.slice(-200);renderCmts();save()}
+function mergeAll(d){if(Array.isArray(d.chat))mergeChat(d.chat);if(Array.isArray(d.cmts))mergeCmts(d.cmts);
+  if(d.likes&&typeof d.likes==='object')for(const[u,x]of Object.entries(d.likes))applyLike(u,x&&x.on,x&&x.ts);
+  if(Array.isArray(d.views))d.views.forEach(u=>typeof u==='string'&&H.views.add(u.slice(0,60)));refresh();save()}
+const lacks=d=>{const c=new Set((d.chat||[]).map(m=>m&&m.id)),k=new Set((d.cmts||[]).map(m=>m&&m.id)),v=new Set(d.views||[]);
+  return H.chat.slice(-60).some(m=>!c.has(m.id))||H.cmts.slice(-60).some(m=>!k.has(m.id))||[...H.views].some(u=>!v.has(u))||[...H.likes].some(([u,x])=>{const y=d.likes&&d.likes[u];return!y||y.ts<x.ts})};
 
-/* validate anything that arrives from the network */
-function san(o,max){if(!o||typeof o!=='object')return null;
-  const id=typeof o.id==='string'?o.id.slice(0,32):'',n=typeof o.n==='string'?clean(o.n).slice(0,20):'',t=typeof o.t==='string'?clean(o.t).slice(0,max):'';
-  const ts=Number.isFinite(o.ts)?o.ts:Date.now(),u=typeof o.u==='string'?o.u.slice(0,40):'';
-  if(!id||!n)return null;const m={id,n,t,u,ts};
-  if(typeof o.img==='string'&&o.img.startsWith('data:image/jpeg;base64,')&&o.img.length<300000)m.img=o.img;
-  return(m.t||m.img)?m:null}
-function recv(kind,o){const m=san(o,kind==='chat'?200:300);if(!m||seen.has(m.id))return;seen.add(m.id);
-  if(kind==='chat'){chatLog.push(m);if(chatLog.length>120)chatLog.shift();addMsg(m,m.u===uid)}
-  else{cmtLog.push(m);if(cmtLog.length>150)cmtLog.shift();addCmt(m)}}
-function snapshot(to){const strip=m=>({id:m.id,n:m.n,u:m.u,ts:m.ts,t:m.t||'📷 image'});
-  return{to,chat:chatLog.slice(-80).map(strip),comments:cmtLog.slice(-100).map(strip),likes:[...likesSet].slice(0,500),views:[...viewsSet].slice(0,2000)}}
-function merge(o){gotSync=true;let c=0,k=0;
-  (Array.isArray(o.chat)?o.chat:[]).forEach(x=>{const m=san(x,200);if(m&&!seen.has(m.id)){seen.add(m.id);chatLog.push(m);c++}});
-  (Array.isArray(o.comments)?o.comments:[]).forEach(x=>{const m=san(x,300);if(m&&!seen.has(m.id)){seen.add(m.id);cmtLog.push(m);k++}});
-  (Array.isArray(o.likes)?o.likes:[]).forEach(u=>{if(typeof u==='string')likesSet.add(u.slice(0,40))});
-  (Array.isArray(o.views)?o.views:[]).forEach(u=>{if(typeof u==='string')viewsSet.add(u.slice(0,40))});
-  if(c)renderChat();if(k)renderCmts();renderLike();renderViews()}
-
-function onMsg(sub,o){if(!o||typeof o!=='object')return;
-  if(sub==='chat'||sub==='comments')recv(sub,o);
-  else if(sub==='pres'&&typeof o.c==='string'){if(o.bye)pres.delete(o.c);else pres.set(o.c,Date.now());showCount()}
-  else if(sub==='like'&&typeof o.u==='string'){o.l?likesSet.add(o.u.slice(0,40)):likesSet.delete(o.u.slice(0,40));renderLike()}
-  else if(sub==='view'&&typeof o.u==='string'){viewsSet.add(o.u.slice(0,40));renderViews()}
-  else if(sub==='req'&&typeof o.c==='string'&&o.c!==cid){
-    setTimeout(()=>pub('pres',{c:cid}),Math.random()*600);
-    if(pend[o.c]||chatLog.length+cmtLog.length+likesSet.size+viewsSet.size===0)return;
-    pend[o.c]=setTimeout(()=>{delete pend[o.c];pub('sync',snapshot(o.c))},150+Math.random()*1200)}
-  else if(sub==='sync'&&typeof o.to==='string'){
-    if(pend[o.to]){clearTimeout(pend[o.to]);delete pend[o.to]}
-    if(o.to===cid)merge(o)}}
-
-function announce(){
-  pub('pres',{c:cid});
-  if(viewed){viewsSet.add(uid);pub('view',{u:uid});renderViews()}
-  if(likesSet.has(uid))pub('like',{u:uid,l:true});
-  pub('req',{c:cid});
-  setTimeout(()=>{if(!gotSync)pub('req',{c:cid})},4000);
-  setTimeout(()=>{if(!gotSync)pub('req',{c:cid})},10000)}
-function connect(){
-  if(stopped)return;
-  if(!window.mqtt){if(!notedDown){notedDown=true;sys('Could not load the chat library. Check your connection and refresh.')}return}
-  const url=BROKERS[bi%BROKERS.length];let ok=false;
-  let c;try{c=mq=mqtt.connect(url,{clientId:'mf-'+cid+'-'+Math.random().toString(36).slice(2,6),clean:true,keepalive:30,connectTimeout:7000,reconnectPeriod:0,
-    will:{topic:B+'pres',payload:JSON.stringify({c:cid,bye:1}),qos:0}})}catch(e){bi++;setTimeout(connect,2000);return}
-  c.on('connect',()=>{ok=true;notedDown=false;c.subscribe(B+'#',{qos:0},err=>{if(err)return;
-    if(!everConnected){everConnected=true}else sys('Chat reconnected.');announce()})});
-  c.on('message',(t,p)=>{try{if(t.indexOf(B)!==0)return;onMsg(t.slice(B.length),JSON.parse(p.toString()))}catch(e){}});
-  c.on('error',()=>{});
-  c.on('close',()=>{if(mq!==c||stopped)return;
-    if(ok&&!notedDown){notedDown=true;sys('Chat disconnected. Reconnecting…')}
-    if(!ok)bi++;setTimeout(connect,ok?2000:1500)})}
-
-function boot(){
-  sys('Welcome, '+name+'. The room is open.');
-  renderViews();renderLike();showCount();
-  connect();
-  setInterval(()=>pub('pres',{c:cid}),8000);
-  setInterval(showCount,3000);
-  addEventListener('pagehide',()=>{stopped=true;pub('pres',{c:cid,bye:1});try{mq&&mq.end(true)}catch(e){}});
-}
-function countView(){if(viewed)return;viewed=true;ls.set(VKEY,'1');viewsSet.add(uid);renderViews();pub('view',{u:uid})}
-
+let saveT=0,snapT=0;
+function save(){clearTimeout(saveT);saveT=setTimeout(()=>{let n=0;const keep=H.chat.slice(-100).reverse().map(m=>{if(m.img&&n++>=6){const r={...m};delete r.img;r.t=r.t||'📷 Image';return r}return m}).reverse();
+  ls.set(LKEY,JSON.stringify({chat:keep,cmts:H.cmts.slice(-100),likes:Object.fromEntries(H.likes),views:[...H.views]}))},400)}
+function snapNow(){try{const st=m=>({id:m.id,n:m.n,t:m.t||'📷 Image',u:m.u,ts:m.ts});
+  const s=JSON.stringify({chat:H.chat.slice(-60).map(st),cmts:H.cmts.slice(-60).map(st),likes:Object.fromEntries(H.likes),views:[...H.views]});
+  links.forEach(c=>c.connected&&c.publish(T_ST,s,{retain:true}))}catch(e){}}
+const snap=ms=>{clearTimeout(snapT);snapT=setTimeout(snapNow,ms||1200)};
+function send(o,force){const s=JSON.stringify(o);links.forEach(c=>{if(force||c.connected)try{c.publish(T_EV,s)}catch(e){}})}
+const online=()=>links.some(c=>c.connected);
+const hb=()=>{if(online())send({k:'hb',c:cid})};
+function status(){const n=links.filter(c=>c.connected).length,e=$('#cst');if(!window.mqtt){e.textContent='offline';return}e.textContent=n?'● online':'connecting…';e.style.color=n?'#4ade80':''}
+function watching(){const t=Date.now();let n=1;peers.forEach((ts,c)=>{if(t-ts<45000)n++;else peers.delete(c)});$('#vw').textContent=n}
+function onMsg(topic,buf){let d;try{d=JSON.parse(buf.toString())}catch(e){return}if(!d||typeof d!=='object')return;
+  if(topic===T_ST){mergeAll(d);if(lacks(d))snap(1500+Math.random()*2500);return}
+  if(d.k==='chat')mergeChat([d.m]);
+  else if(d.k==='cmt')mergeCmts([d.m]);
+  else if(d.k==='like'){applyLike(d.u,d.on,d.ts);refresh();save()}
+  else if(d.k==='view'&&typeof d.u==='string'){H.views.add(d.u.slice(0,60));refresh();save()}
+  else if(d.k==='hb'&&typeof d.c==='string'&&d.c!==cid)peers.set(d.c,Date.now());
+  else if(d.k==='bye'&&typeof d.c==='string')peers.delete(d.c);
+  else if(d.k==='hi'&&d.c!==cid){if(typeof d.c==='string')peers.set(d.c,Date.now());setTimeout(hb,Math.random()*1500)}
+  watching()}
+function connect(){status();if(!window.mqtt)return;
+  BROKERS.forEach(u=>{try{const c=mqtt.connect(u,{clientId:'mf_'+cid+Math.random().toString(36).slice(2,6),clean:true,reconnectPeriod:4000,connectTimeout:10000,keepalive:30});
+    c.on('connect',()=>{c.subscribe([T_EV,T_ST],{qos:0});c.publish(T_EV,JSON.stringify({k:'hi',c:cid}));status();snap(4000)});
+    c.on('message',onMsg);c.on('close',status);c.on('error',()=>{});links.push(c)}catch(e){}});
+  setInterval(hb,10000);setInterval(watching,2000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)hb()});
+  addEventListener('pagehide',()=>send({k:'bye',c:cid}))}
+/* correct this device's clock against the host's HTTP date so everyone starts in sync */
+(async()=>{if(TEST)return;try{const t0=Date.now(),r=await fetch(location.href.split('#')[0],{method:'HEAD',cache:'no-store'}),t1=Date.now(),d=Date.parse(r.headers.get('date')||'');
+  if(d){const o=d+500-(t0+t1)/2;if(Math.abs(o)>2000)off=o}}catch(e){}})();
+function boot(){renderChat();renderCmts();refresh();watching();connect()}
 let lastSend=0;
-const post=(path,text,img)=>{const t=clean(text).slice(0,path==='chat'?200:300);if(!t&&!img)return false;if(Date.now()-lastSend<(img?3000:1500))return false;
-  if(!mq||!mq.connected){sys('Still connecting to the chat server. Try again in a moment.');return false}
-  lastSend=Date.now();
-  const m={id:Math.random().toString(36).slice(2,12)+Date.now().toString(36),n:name,t,u:uid,ts:Date.now()};if(img)m.img=img;
-  seen.add(m.id);
-  if(path==='chat'){chatLog.push(m);addMsg(m,true)}else{cmtLog.push(m);addCmt(m)}
-  pub(path,m);return true};
+const post=(path,text,img)=>{const t=clean(text).slice(0,path==='chat'?200:300);if(!t&&!img)return false;if(Date.now()-lastSend<(img?3000:1500))return false;lastSend=Date.now();
+  const m={id:uid.slice(0,8)+Date.now().toString(36)+Math.random().toString(36).slice(2,6),n:name,t,u:uid,ts:now()};if(img)m.img=img;
+  if(path==='chat')mergeChat([m]);else mergeCmts([m]);
+  send({k:path==='chat'?'chat':'cmt',m},1);save();snap(1200);return true};
 $('#cf').addEventListener('submit',e=>{e.preventDefault();if(post('chat',$('#ci').value))$('#ci').value='';$('#pk').hidden=true});
 $('#cform').addEventListener('submit',e=>{e.preventDefault();if(post('comments',$('#ct').value))$('#ct').value=''});
-$('#lk').onclick=()=>{const on=!likesSet.has(uid);on?likesSet.add(uid):likesSet.delete(uid);ls.set(LKEY,on?'1':'0');renderLike();if(on&&$('#lk svg'))$('#lk svg').classList.add('pop');pub('like',{u:uid,l:on})};
+$('#lk').onclick=()=>{const on=!liked,ts=now();H.likes.set(uid,{on,ts});send({k:'like',u:uid,on,ts},1);refresh();if(on)$('#lk svg').classList.add('pop');save();snap(1500)};
 /* ---------- icons, emoji, images ---------- */
 const st='fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
 const I={play:'<path d="M8 5v14l11-7z"/>',pause:'<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>',
@@ -486,9 +463,9 @@ EM.forEach(e=>{const b=document.createElement('button');b.type='button';b.textCo
 $('#eb').onclick=e=>{e.stopPropagation();pk.hidden=!pk.hidden};
 document.addEventListener('click',e=>{if(!pk.contains(e.target))pk.hidden=true});
 function shrink(f){return new Promise(res=>{const r=new FileReader();r.onerror=()=>res(null);r.onload=()=>{const im=new Image();im.onerror=()=>res(null);im.onload=()=>{
-  const k=Math.min(1,720/Math.max(im.width,im.height)),w=Math.round(im.width*k),h=Math.round(im.height*k),c=document.createElement('canvas');c.width=w;c.height=h;
+  const k=Math.min(1,640/Math.max(im.width,im.height)),w=Math.round(im.width*k),h=Math.round(im.height*k),c=document.createElement('canvas');c.width=w;c.height=h;
   const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(im,0,0,w,h);let q=.72,u=c.toDataURL('image/jpeg',q);
-  while(u.length>180000&&q>.35){q-=.1;u=c.toDataURL('image/jpeg',q)}res(u.length<=250000?u:null)};im.src=r.result};r.readAsDataURL(f)})}
+  while(u.length>110000&&q>.3){q-=.08;u=c.toDataURL('image/jpeg',q)}res(u.length<=150000?u:null)};im.src=r.result};r.readAsDataURL(f)})}
 async function sendImg(f){if(!f||!/^image\//.test(f.type)||$('#ci').disabled)return;const u=await shrink(f);
   if(!u||!post('chat','',u))addMsg({n:'MorFlix',t:u?'Slow down a little, then send the image again.':'That image could not be sent.'})}
 $('#ib').onclick=()=>$('#fi').click();$('#fi').onchange=e=>{sendImg(e.target.files[0]);e.target.value=''};
