@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MorFlix</title>
+<title>MorFlix Premiere</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@200;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--red:#e50914;--bg:#09090B;--panel:#121215;--raise:#1a1a1f;--mut:#8b8b94;--hair:rgba(255,255,255,.07);--pad:clamp(16px,3vw,40px);--sans:Inter,system-ui,-apple-system,sans-serif}
@@ -45,9 +45,7 @@ main{max-width:1440px;margin:0 auto;padding:12px var(--pad) 96px;overflow-x:clip
 /* player */
 .player{position:relative;aspect-ratio:16/9;background:#000;border-radius:16px;overflow:hidden;box-shadow:0 40px 80px -40px #000}
 .player:fullscreen{border-radius:0;aspect-ratio:auto;width:100%;height:100%}
-.player iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
-/* transparent shield: blocks clicks on YouTube's own UI so nobody can desync, and lets tap-to-pause work */
-#shield{position:absolute;inset:0;z-index:2}
+.player video,.player iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000;object-fit:contain}
 
 /* cinematic countdown cover */
 #cover{position:absolute;inset:0;z-index:3;display:grid;place-items:center;text-align:center;padding:24px;overflow:hidden;background:#09090B center/cover}
@@ -73,8 +71,8 @@ main{max-width:1440px;margin:0 auto;padding:12px var(--pad) 96px;overflow-x:clip
 .bar{position:absolute;z-index:5;left:0;right:0;bottom:0;padding:56px 18px 14px;background:linear-gradient(#0000,#000000d9 70%);transition:opacity .3s}
 .player.idle .bar{opacity:0}.player.idle{cursor:none}
 .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.row button{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-radius:99px;font-size:13px;background:#ffffff17;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);white-space:nowrap;transition:background .15s}
-.row button:hover{background:#ffffff30}
+.row button,.row a{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-radius:99px;font-size:13px;background:#ffffff17;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);text-decoration:none;white-space:nowrap;transition:background .15s}
+.row button:hover,.row a:hover{background:#ffffff30}
 .row #pp,.row #mu,.row #fs{width:38px;padding:0;justify-content:center}
 .row #pp{background:#fff;color:#09090B}.row #pp:hover{background:#ffffffd0}
 .sp{flex:1}
@@ -84,6 +82,11 @@ input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:5px;
 input[type=range]:hover{height:8px}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:#fff}
 input[type=range]::-moz-range-thumb{width:13px;height:13px;border:0;border-radius:50%;background:#fff}
+.menu{position:relative}
+#qm{position:absolute;bottom:46px;right:0;background:var(--raise);border-radius:12px;padding:6px;min-width:96px;box-shadow:0 20px 50px #000a}
+#qm button{display:block;width:100%;text-align:left;height:auto;border-radius:8px;padding:8px 12px;background:none}
+#qm button:hover{background:#ffffff14}
+#qm .cur{color:#ff5a64}
 
 /* chat: flush with player bottom */
 .chat{grid-column:2;grid-row:1;position:relative;min-height:0;background:var(--panel);border-radius:16px;overflow:hidden}
@@ -170,8 +173,8 @@ img.emoji{height:1.3em;width:1.3em;vertical-align:-.28em;margin:0 .04em}
   <div class="stage">
     <div class="pw">
     <div class="player" id="player">
-      <div id="yt"></div>
-      <div id="shield"></div>
+      <video id="v" playsinline preload="auto"></video>
+      <iframe id="fb" allow="autoplay; fullscreen" allowfullscreen hidden></iframe>
       <div id="cover"><div><small id="cvTop"></small><div id="cd">--:--:--</div><small id="cvSub"></small></div></div>
       <button id="big" hidden aria-label="Play">▶</button>
       <div id="note" hidden></div>
@@ -182,6 +185,8 @@ img.emoji{height:1.3em;width:1.3em;vertical-align:-.28em;margin:0 .04em}
           <button id="live" class="on">● LIVE</button><button id="rst">Start over</button>
           <span class="sp"></span>
           <button id="mu" aria-label="Mute">🔊</button>
+          <div class="menu"><button id="qb">Quality</button><div id="qm" hidden></div></div>
+          <a id="dl" target="_blank" rel="noopener" hidden>Download</a>
           <button id="fs" aria-label="Fullscreen">⤢</button>
         </div>
       </div>
@@ -221,59 +226,31 @@ img.emoji{height:1.3em;width:1.3em;vertical-align:-.28em;margin:0 .04em}
 /* ============ EDIT THIS ============ */
 const CONFIG={
   title:"Balbir Army: Ghostxday",
-  description:"A MorFlix original, made for the Discord crew.",
-  premiere:"2026-11-12T20:15:00+05:30",   // 8:15 PM IST. Change the DATE to your premiere day.
-  youtube:"PASTE_YOUTUBE_LINK_HERE",       // your YouTube link (Unlisted or Public) or just the 11-character video ID
-  durationSec:null,                        // optional but recommended: movie length in seconds (e.g. 990)
+  description:"A MorFlix original, made by Raunak Kumar.",
+  premiere:"2026-11-12T21:15:00+05:30",   // 8:15 PM IST. Change the DATE to your premiere day.
+  durationSec:null,                        // optional: movie length in seconds (e.g. 990) as a safety net
   poster:"",                               // optional image URL for the countdown screen
   tudumUrl:"",                             // optional: your own sound file, else a synthesized tudum plays
+  sources:[                                // best quality first; add/remove freely
+    {label:"720p",url:"https://drive.google.com/file/d/1g-KY2iO9fSmEBesLf49AgXNNm_tqnwOY/view?usp=drivesdk"},
+    {label:"480p", url:""}
+  ],
+  downloadUrl:"",                          // optional; defaults to the first source
   firebase:{apiKey:"AIzaSyDl03W4nF9PXNSnpUCZvb0hNIqumjjL7nE",authDomain:"nothing-bb231.firebaseapp.com",databaseURL:"https://nothing-bb231-default-rtdb.firebaseio.com",projectId:"nothing-bb231",appId:"1:722852782424:web:b05d461d94cff0c25d452d"},  // OPTIONAL: paste Firebase config here to use a database. Leave empty to run with no DB.
   room:"morflix-premiere-k7q2x9"          // any unique string. Everyone using the same value shares one chat room. No setup needed.
 };
 /* =================================== */
 
 const $=s=>document.querySelector(s),TEST=new URLSearchParams(location.search).has('test');
-const YTID=(u=>{u=String(u||'').trim();const m=u.match(/(?:v=|youtu\.be\/|embed\/|shorts\/|live\/)([\w-]{11})/);return m?m[1]:/^[\w-]{11}$/.test(u)?u:''})(CONFIG.youtube);
+const S=CONFIG.sources.filter(s=>s.url&&!/PASTE/.test(s.url));
 const ls={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
 const uid=ls.get('mf_uid')||(Math.random().toString(36).slice(2)+Date.now().toString(36));ls.set('mf_uid',uid);
 const cid=Math.random().toString(36).slice(2);
 let name='',off=0;
 const now=()=>TEST?Date.now():Date.now()+off;
 const P=TEST?Date.now()+25000:Date.parse(CONFIG.premiere);
-const seek=$('#seek'),player=$('#player');
-let dur=CONFIG.durationSec||0,ph='',follow=true,ready=false,drag=false,views=0,likes=0,liked=false;
-
-/* ---------- YouTube player wrapped to behave like a <video> element ---------- */
-let yp=null,ytReady=false,ytState=-1;const VL={};
-const v={
-  readyState:0,seeking:false,
-  get currentTime(){try{return ytReady?(yp.getCurrentTime()||0):0}catch(e){return 0}},
-  set currentTime(t){try{if(ytReady)yp.seekTo(Math.max(0,t),true)}catch(e){}},
-  get duration(){try{return ytReady?(yp.getDuration()||0):0}catch(e){return 0}},
-  get paused(){return ytState!==1&&ytState!==3},
-  get ended(){return ytState===0},
-  get muted(){try{return ytReady?yp.isMuted():false}catch(e){return false}},
-  set muted(m){try{if(ytReady)m?yp.mute():yp.unMute()}catch(e){}},
-  play(){if(!ytReady)return Promise.reject();try{yp.playVideo()}catch(e){}
-    return new Promise((res,rej)=>setTimeout(()=>ytState===1||ytState===3?res():rej(),1500))},
-  pause(){try{if(ytReady)yp.pauseVideo()}catch(e){}},
-  addEventListener(e,f){(VL[e]=VL[e]||[]).push(f)},
-  emit(e){(VL[e]||[]).forEach(f=>f())}
-};
-function loadYT(){
-  const go=()=>{const pv={controls:0,disablekb:1,fs:0,rel:0,playsinline:1,modestbranding:1,iv_load_policy:3,cc_load_policy:0};
-    if(/^https?:/.test(location.origin))pv.origin=location.origin;
-    yp=new YT.Player('yt',{videoId:YTID,playerVars:pv,events:{
-      onReady:()=>{ytReady=true;v.readyState=1;$('#note').hidden=true;v.emit('loadedmetadata')},
-      onStateChange:e=>{ytState=e.data;
-        if(e.data===1){v.emit('play');v.emit('playing')}
-        else if(e.data===2||e.data===0)v.emit('pause')},
-      onError:e=>{const c=e.data,msg=(c===101||c===150)?'Embedding is turned off for this YouTube video':(c===100)?'This YouTube video is private or removed':'YouTube could not play this video';
-        $('#note').classList.remove('standby');$('#note').textContent=msg;$('#note').hidden=false}
-    }})};
-  if(window.YT&&YT.Player)go();
-  else{window.onYouTubeIframeAPIReady=go;const s=document.createElement('script');s.src='https://www.youtube.com/iframe_api';document.head.appendChild(s)}
-}
+const v=$('#v'),seek=$('#seek'),player=$('#player');
+let dur=CONFIG.durationSec||0,ph='',follow=true,ready=false,drag=false,resume=null,resumePlay=true,qi=0,fbMode=false,errs=0,views=0,likes=0,liked=false;
 
 const fmt=s=>{s=Math.max(0,Math.floor(s||0));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return(h?h+':'+String(m).padStart(2,'0'):m)+':'+String(x).padStart(2,'0')};
 const hms=s=>{const d=Math.floor(s/86400);s%=86400;const p=n=>String(n).padStart(2,'0');return(d?d+'d ':'')+p(Math.floor(s/3600))+':'+p(Math.floor(s%3600/60))+':'+p(s%60)};
@@ -282,6 +259,8 @@ const edge=()=>(now()-P)/1000;
 const phase=()=>{const e=edge();return e<0?'before':((dur&&e>dur+1)||e>14400)?'ended':'live'};
 const clean=t=>String(t).replace(/[\u0000-\u001f<>]/g,'').trim();
 const hue=n=>{let h=0;for(const c of n)h=(h*31+c.charCodeAt(0))%360;return`hsl(${h} 70% 68%)`};
+const driveId=u=>(u.match(/\/d\/([\w-]+)/)||u.match(/[?&]id=([\w-]+)/)||[])[1];
+const direct=u=>{const i=driveId(u);return i&&/drive\.google/.test(u)?`https://drive.usercontent.google.com/download?id=${i}&export=download&confirm=t`:u};
 
 /* ---------- gate + intro ---------- */
 $('#nm').value=ls.get('mf_name')||'';
@@ -309,34 +288,45 @@ function setup(){
   const when=new Date(P).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})+' IST';
   $('#cvTop').textContent=TEST?'Test mode · premiere in a few seconds':'Premiere · '+when;
   $('#cvSub').textContent='Playback begins automatically at premiere time.';
-  if(YTID)loadYT();else{$('#note').hidden=false;$('#note').classList.add('standby');$('#note').textContent='STREAM STANDBY'}
+  const dl=CONFIG.downloadUrl||(S[0]&&S[0].url);if(dl){const a=$('#dl');a.href=dl;a.hidden=false}
+  $('#qm').innerHTML='';S.forEach((s,i)=>{const b=document.createElement('button');b.textContent=s.label;b.onclick=()=>{$('#qm').hidden=true;if(i!==qi&&!fbMode){const t=follow&&phase()==='live'?-1:v.currentTime;setSrc(i,t,!v.paused||t===-1)}};$('#qm').appendChild(b)});
+  if(S.length<2)$('#qb').hidden=S.length===0;
+  if(S.length)setSrc(0,null,false);else{$('#note').hidden=false;$('#note').classList.add('standby');$('#note').textContent='STREAM STANDBY'}
   boot();tick();setInterval(tick,500);
 }
+function setSrc(i,t,pl){qi=i;resume=t;resumePlay=pl;$('#qb').innerHTML=ic('gear')+S[i].label;[...$('#qm').children].forEach((b,k)=>b.className=k===i?'cur':'');v.src=direct(S[i].url);v.load()}
 
 /* ---------- playback ---------- */
-function goLive(){follow=true;const e=edge();v.currentTime=Math.max(0,Math.min(e,(dur||e+1)-.5));v.play().catch(()=>$('#big').hidden=false)}
-v.addEventListener('loadedmetadata',()=>{dur=v.duration||dur;seek.max=dur;if(ready&&phase()==='live')goLive()});
+function goLive(){if(fbMode)return;follow=true;const e=edge();v.currentTime=Math.max(0,Math.min(e,(dur||e+1)-.5));v.play().catch(()=>$('#big').hidden=false)}
+v.addEventListener('loadedmetadata',()=>{errs=0;$('#note').hidden=true;dur=v.duration||dur;seek.max=dur;
+  if(resume!=null&&resume>=0){v.currentTime=Math.min(resume,dur-.1);if(resumePlay)v.play().catch(()=>$('#big').hidden=false)}
+  else if(resume===-1||(ready&&phase()==='live'))goLive();
+  resume=null});
+v.addEventListener('error',()=>{if(!S.length)return;errs++;
+  if(errs>=3&&driveId(S[qi].url)){fbMode=true;v.hidden=true;const f=$('#fb');f.src='https://drive.google.com/file/d/'+driveId(S[qi].url)+'/preview';f.hidden=false;$('#bar').hidden=true;$('#note').hidden=false;return}
+  $('#note').hidden=false;$('#note').textContent='Re-establishing the stream…';setTimeout(()=>{resume=v.currentTime>1?v.currentTime:null;v.load()},3000)});
 v.addEventListener('play',()=>{$('#big').hidden=true;$('#pp').innerHTML=ic('pause');
   if(!H.views.has(uid)){H.views.add(uid);send({k:'view',u:uid},1);if(fdb)fref('views/'+uid).set(true);refresh();save();snap(1500)}});
 v.addEventListener('pause',()=>{$('#pp').innerHTML=ic('play');if(!v.ended)follow=false});
 v.addEventListener('playing',()=>{$('#big').hidden=true});
 const toggle=()=>{v.paused?v.play().catch(()=>{}):v.pause()};
-$('#shield').addEventListener('click',toggle);$('#pp').onclick=toggle;$('#big').onclick=()=>{$('#big').hidden=true;v.play().catch(()=>{})};
+v.addEventListener('click',toggle);$('#pp').onclick=toggle;$('#big').onclick=()=>{$('#big').hidden=true;v.play().catch(()=>{})};
 seek.addEventListener('input',()=>{drag=true;follow=false;let t=+seek.value;if(phase()==='live')t=Math.min(t,edge());v.currentTime=t});
 seek.addEventListener('change',()=>drag=false);
 $('#live').onclick=goLive;$('#rst').onclick=()=>{follow=false;v.currentTime=0;v.play().catch(()=>{})};
 $('#mu').onclick=()=>{v.muted=!v.muted;$('#mu').innerHTML=ic(v.muted?'mute':'vol')};
+$('#qb').onclick=e=>{e.stopPropagation();$('#qm').hidden=!$('#qm').hidden};document.addEventListener('click',()=>$('#qm').hidden=true);
 $('#fs').onclick=()=>{const fe=document.fullscreenElement||document.webkitFullscreenElement;
   if(fe){(document.exitFullscreen||document.webkitExitFullscreen).call(document)}
-  else{const r=player.requestFullscreen||player.webkitRequestFullscreen;if(r)Promise.resolve(r.call(player)).catch(()=>{})}};
-document.addEventListener('keydown',e=>{if(/INPUT|TEXTAREA/.test(e.target.tagName))return;
+  else{const r=player.requestFullscreen||player.webkitRequestFullscreen;if(r)Promise.resolve(r.call(player)).catch(()=>{});else if(v.webkitEnterFullscreen)v.webkitEnterFullscreen()}};
+document.addEventListener('keydown',e=>{if(/INPUT|TEXTAREA/.test(e.target.tagName)||fbMode)return;
   if(e.key===' '){e.preventDefault();toggle()}else if(e.key==='f')$('#fs').click();else if(e.key==='m')$('#mu').click();
-  else if(e.key==='ArrowLeft'){follow=false;v.currentTime=v.currentTime-5}else if(e.key==='ArrowRight'){follow=false;v.currentTime=Math.min(v.currentTime+5,phase()==='live'?edge():dur)}});
+  else if(e.key==='ArrowLeft'){follow=false;v.currentTime-=5}else if(e.key==='ArrowRight'){follow=false;v.currentTime=Math.min(v.currentTime+5,phase()==='live'?edge():dur)}});
 let idleT;const wake=()=>{player.classList.remove('idle');clearTimeout(idleT);idleT=setTimeout(()=>{if(!v.paused)player.classList.add('idle')},2800)};
 ['mousemove','touchstart','keydown'].forEach(ev=>player.addEventListener(ev,wake));
 
 function onPhase(p){
-  $('#cover').hidden=p!=='before';$('#bar').hidden=p==='before';
+  $('#cover').hidden=p!=='before';if(!fbMode)$('#bar').hidden=p==='before';
   $('#chipLive').hidden=p==='ended';
   const live=p==='live',end=p==='ended';
   $('#live').hidden=!live;
@@ -344,17 +334,17 @@ function onPhase(p){
   $('#chTitle').textContent=end?'Chat replay':'Live chat';
   $('#ci').disabled=end;document.querySelectorAll('#cf button').forEach(b=>b.disabled=end);$('#ci').placeholder=end?'Chat has closed. Leave a comment below.':'Join the conversation…';
   if(end)follow=false;
-  if(live&&ready&&v.readyState>0)goLive();
+  if(live&&ready&&!fbMode&&v.readyState>0)goLive();
 }
 function tick(){try{
   const e=edge(),p=phase();if(p!==ph){ph=p;onPhase(p)}
   if(p==='before'){$('#cd').innerHTML=cdHTML(Math.ceil(-e));return}
+  if(fbMode){$('#note').textContent=p==='live'?'Live position is '+fmt(e)+'. Drag the timeline there to join in sync.':'';$('#note').hidden=p!=='live';return}
   if(!v.readyState)return;
-  const rd=v.duration;if(rd&&rd!==dur){dur=rd;seek.max=dur}
   const t=v.currentTime,le=p==='live'?Math.min(e,dur||e):dur;
   if(p==='live'){
     if(t>le+1.5)v.currentTime=le;
-    else if(follow&&!v.paused&&le-t>4)v.currentTime=le;
+    else if(follow&&!v.paused&&!v.seeking&&le-t>4)v.currentTime=le;
     $('#live').className=le-t<6?'on':'';
   }
   if(!drag)seek.value=t;
@@ -470,6 +460,8 @@ const I={play:'<path d="M8 5v14l11-7z"/>',pause:'<path d="M6 5h4v14H6zM14 5h4v14
  vol:'<path d="M3 9v6h4l5 5V4L7 9H3z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 6a9 9 0 0 1 0 12" '+st+'/>',
  mute:'<path d="M3 9v6h4l5 5V4L7 9H3z"/><path d="m15.5 9.5 5 5m0-5-5 5" '+st+'/>',
  fs:'<path d="M5 5h5v2H7v3H5V5zm9 0h5v5h-2V7h-3V5zM5 14h2v3h3v2H5v-5zm12 3v-3h2v5h-5v-2h3z"/>',
+ dl:'<path d="M12 3v11.2l4-4 1.4 1.4L12 17l-5.4-5.4L8 10.2l3 3V3zM5 19h14v2H5z"/>',
+ gear:'<path d="M4 7h10M18 7h2M4 17h2M10 17h10" '+st+'/><circle cx="16" cy="7" r="2.2"/><circle cx="8" cy="17" r="2.2"/>',
  heart:'<path d="M12 21s-8-5-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 6-8 11-8 11z" '+st+'/>',
  heartF:'<path d="M12 21s-8-5-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 6-8 11-8 11z"/>',
  smile:'<circle cx="12" cy="12" r="9" '+st+'/><circle cx="9" cy="10" r="1.2"/><circle cx="15" cy="10" r="1.2"/><path d="M8 14.5a5 5 0 0 0 8 0" '+st+'/>',
@@ -494,7 +486,7 @@ $('#ib').onclick=()=>$('#fi').click();$('#fi').onchange=e=>{sendImg(e.target.fil
 $('#ci').addEventListener('paste',e=>{const f=[...(e.clipboardData&&e.clipboardData.files||[])].find(x=>/^image\//.test(x.type));if(f){e.preventDefault();sendImg(f)}});
 $('#lb').onclick=()=>$('#lb').hidden=true;document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#lb').hidden=true});
 ['#pp','#big'].forEach(i=>$(i).innerHTML=ic('play'));
-$('#mu').innerHTML=ic('vol');$('#fs').innerHTML=ic('fs');
+$('#mu').innerHTML=ic('vol');$('#fs').innerHTML=ic('fs');$('#dl').innerHTML=ic('dl')+'Download';$('#qb').innerHTML=ic('gear')+'Quality';
 $('#eb').innerHTML=ic('smile');$('#ib').innerHTML=ic('img');$('#sendb').innerHTML=ic('send');renderLike();
 
 </script>
