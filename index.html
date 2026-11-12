@@ -18,40 +18,38 @@ button:disabled,input:disabled{opacity:.4;cursor:not-allowed}
 
 /* gate */
 #gate{position:fixed;inset:0;z-index:60;display:grid;place-items:center;text-align:center;padding:24px;background:radial-gradient(ellipse at 50% 0,#3a0a10 0,#09090B 65%)}
-#gate .logo{font-size:clamp(64px,16vw,130px);text-shadow:0 0 60px #e5091455}
+#gate .logo{font-size:clamp(64px,16vw,130px)}
 #gate p{color:var(--mut);margin:10px 0 28px}
 #gate input{width:min(320px,80vw);padding:14px 16px;background:var(--panel);border:0;border-radius:10px;text-align:center;outline:0;font-size:17px;transition:box-shadow .2s}
 #gate input:focus{box-shadow:0 0 0 2px #e5091499}
 .cta{display:block;margin:14px auto 0;background:var(--red);padding:13px 34px;border-radius:10px;font-weight:600;font-size:16px;transition:background .15s}
 .cta:hover{background:#f6121d}
 
-/* intro */
+/* intro (lightweight: opacity/transform only) */
 #intro{position:fixed;inset:0;background:#09090B;z-index:70;display:grid;place-items:center;overflow:hidden}
 #intro b,#intro i{will-change:transform,opacity}
-#intro b{font:400 min(24vw,210px)/1 'Bebas Neue',Impact,sans-serif;letter-spacing:.05em;color:var(--red);text-shadow:0 0 70px #e50914aa;animation:logo 3.5s cubic-bezier(.6,0,.4,1) forwards}
-#intro i{position:absolute;top:0;bottom:0;width:2px;background:linear-gradient(#0000,var(--red),#0000);opacity:0;animation:st 3.5s ease-in forwards}
-@keyframes logo{0%{opacity:0;transform:scale(.7)}14%{opacity:1;transform:scale(1)}50%{transform:scale(1.06)}100%{transform:scale(14);opacity:0}}
-@keyframes st{0%,30%{opacity:0;transform:scaleY(.2)}55%{opacity:.9}100%{opacity:0;transform:scaleY(1.4) translateX(40vw)}}
+#intro b{font:400 min(24vw,210px)/1 'Bebas Neue',Impact,sans-serif;letter-spacing:.05em;color:var(--red);animation:logo 3s cubic-bezier(.6,0,.4,1) forwards}
+#intro i{position:absolute;top:0;bottom:0;width:2px;background:linear-gradient(#0000,var(--red),#0000);opacity:0;animation:st 3s ease-in forwards}
+@keyframes logo{0%{opacity:0;transform:scale(.7)}18%{opacity:1;transform:scale(1)}55%{transform:scale(1.05)}100%{transform:scale(5);opacity:0}}
+@keyframes st{0%,30%{opacity:0}55%{opacity:.9}100%{opacity:0;transform:translateX(40vw)}}
 
 /* header + layout */
-header{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:16px max(var(--pad),calc((100% - 1440px)/2 + var(--pad)));background:#09090Bd9;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+header{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:16px max(var(--pad),calc((100% - 1440px)/2 + var(--pad)));background:#09090Bf2}
 header .logo{font-size:26px}
 header span{color:var(--mut);font-size:13px;letter-spacing:.01em}
 main{max-width:1440px;margin:0 auto;padding:12px var(--pad) 96px;overflow-x:clip}
 .stage{display:grid;grid-template-columns:minmax(0,1fr) 380px;column-gap:24px;align-items:stretch}
 .pw{position:relative;isolation:isolate;grid-column:1;grid-row:1}
-.pw:before{content:"";position:absolute;z-index:-1;inset:-10% -5% -14%;pointer-events:none;background:radial-gradient(60% 55% at 32% 58%,#e5091447,#0000 70%),radial-gradient(40% 45% at 78% 38%,#f59e0b29,#0000 70%);filter:blur(56px)}
+.pw:before{content:"";position:absolute;z-index:-1;inset:-10% -5% -14%;pointer-events:none;background:radial-gradient(60% 55% at 32% 58%,#e5091440,#0000 70%),radial-gradient(40% 45% at 78% 38%,#f59e0b24,#0000 70%)}
 
 /* player */
-.player{position:relative;aspect-ratio:16/9;background:#000;border-radius:16px;overflow:hidden;box-shadow:0 40px 80px -40px #000}
+.player{position:relative;aspect-ratio:16/9;background:#000;border-radius:16px;overflow:hidden;transform:translateZ(0)}
 .player:fullscreen{border-radius:0;aspect-ratio:auto;width:100%;height:100%}
 .player video,.player iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000;object-fit:contain}
 
-/* cinematic countdown cover */
+/* countdown cover (static, no animated grain) */
 #cover{position:absolute;inset:0;z-index:3;display:grid;place-items:center;text-align:center;padding:24px;overflow:hidden;background:#09090B center/cover}
 #cover:before{content:"";position:absolute;inset:0;background:radial-gradient(70% 60% at 50% 118%,#e5091473,#0000 70%),radial-gradient(45% 50% at 84% 6%,#f59e0b38,#0000 70%),radial-gradient(55% 60% at 14% 22%,#a1142840,#0000 70%),linear-gradient(#09090b8c,#09090bd1)}
-#cover:after{content:"";position:absolute;inset:-25%;pointer-events:none;opacity:.16;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");animation:grain .9s steps(1) infinite}
-@keyframes grain{0%{transform:translate(0,0)}20%{transform:translate(-4%,3%)}40%{transform:translate(3%,-4%)}60%{transform:translate(-2%,-3%)}80%{transform:translate(4%,2%)}100%{transform:translate(0,0)}}
 #cover>div{position:relative;z-index:1}
 #cvTop{display:block;font-size:11px;font-weight:500;letter-spacing:.34em;text-transform:uppercase;color:#f0b36a}
 #cd{display:flex;justify-content:center;align-items:flex-start;margin:30px 0 28px;font-weight:200}
@@ -61,18 +59,18 @@ main{max-width:1440px;margin:0 auto;padding:12px var(--pad) 96px;overflow-x:clip
 #cd small{display:block;margin-top:12px;font-size:10px;font-weight:500;letter-spacing:.3em;text-transform:uppercase;color:var(--mut)}
 #cvSub{display:block;font-size:14px;color:#a1a1aa}
 
-#big{position:absolute;z-index:4;inset:0;margin:auto;width:88px;height:88px;border-radius:50%;display:grid;place-items:center;background:#e50914e6;box-shadow:0 0 0 12px #e5091433,0 20px 60px #e5091466;transition:transform .2s}
+#big{position:absolute;z-index:4;inset:0;margin:auto;width:88px;height:88px;border-radius:50%;display:grid;place-items:center;background:#e50914e6;box-shadow:0 0 0 12px #e5091433;transition:transform .2s}
 #big:hover{transform:scale(1.07)}#big svg{width:40px;height:40px;margin-left:5px}
-#note{position:absolute;z-index:4;top:16px;left:16px;display:inline-flex;align-items:center;gap:8px;max-width:calc(100% - 32px);font-size:12px;padding:7px 13px;border-radius:99px;background:#121215b3;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:#d4d4d8}
+#note{position:absolute;z-index:4;top:16px;left:16px;display:inline-flex;align-items:center;gap:8px;max-width:calc(100% - 32px);font-size:12px;padding:7px 13px;border-radius:99px;background:#121215e6;color:#d4d4d8}
 #note.standby{font-size:10.5px;font-weight:600;letter-spacing:.24em;text-transform:uppercase}
-#note.standby:before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:#f59e0b;box-shadow:0 0 10px #f59e0b}
+#note.standby:before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:#f59e0b}
 
 /* player controls */
 .bar{position:absolute;z-index:5;left:0;right:0;bottom:0;padding:56px 18px 14px;background:linear-gradient(#0000,#000000d9 70%);transition:opacity .3s}
 .player.idle .bar{opacity:0}.player.idle{cursor:none}
 .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.row button,.row a{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-radius:99px;font-size:13px;background:#ffffff17;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);text-decoration:none;white-space:nowrap;transition:background .15s}
-.row button:hover,.row a:hover{background:#ffffff30}
+.row button,.row a{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-radius:99px;font-size:13px;background:#ffffff24;text-decoration:none;white-space:nowrap;transition:background .15s}
+.row button:hover,.row a:hover{background:#ffffff36}
 .row #pp,.row #mu,.row #fs{width:38px;padding:0;justify-content:center}
 .row #pp{background:#fff;color:#09090B}.row #pp:hover{background:#ffffffd0}
 .sp{flex:1}
@@ -88,14 +86,13 @@ input[type=range]::-moz-range-thumb{width:13px;height:13px;border:0;border-radiu
 #qm button:hover{background:#ffffff14}
 #qm .cur{color:#ff5a64}
 
-/* chat: flush with player bottom */
-.chat{grid-column:2;grid-row:1;position:relative;min-height:0;background:var(--panel);border-radius:16px;overflow:hidden}
+/* chat */
+.chat{grid-column:2;grid-row:1;position:relative;min-height:0;background:var(--panel);border-radius:16px;overflow:hidden;contain:layout paint}
 .chat>.in{position:absolute;inset:0;display:flex;flex-direction:column}
 .chat h3{display:flex;align-items:center;gap:10px;padding:18px 20px 8px;font-size:11px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:#a1a1aa}
 #cst{margin-left:auto;font-weight:400;letter-spacing:0;text-transform:none;font-size:11px;color:var(--mut)}
-.chat h3:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--red);box-shadow:0 0 10px var(--red);animation:pl 1.2s infinite}
-@keyframes pl{50%{opacity:.3}}
-#msgs{flex:1;overflow-y:auto;padding:10px 20px 14px;display:flex;flex-direction:column;gap:12px;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#ffffff26 #0000}
+.chat h3:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--red)}
+#msgs{flex:1;overflow-y:auto;padding:10px 20px 14px;display:flex;flex-direction:column;gap:12px;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#ffffff26 #0000;-webkit-overflow-scrolling:touch}
 .m,.m.me{display:flex;gap:10px;align-items:flex-start;font-size:14px;word-break:break-word}
 .m i{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font:600 12px var(--sans);color:#111;font-style:normal}
 .m b{display:block;font-size:12px;font-weight:600;margin:0 0 1px}
@@ -103,7 +100,7 @@ input[type=range]::-moz-range-thumb{width:13px;height:13px;border:0;border-radiu
 .m .pic{max-width:100%;max-height:220px;border-radius:12px;display:block;margin-top:6px;cursor:zoom-in}
 img.emoji{height:1.3em;width:1.3em;vertical-align:-.28em;margin:0 .04em}
 .send{position:relative;display:flex;align-items:center;gap:2px;padding:10px 12px 10px 10px;background:var(--panel);border-top:1px solid var(--hair)}
-.send input#ci{flex:1;min-width:0;background:none;border:0;outline:0;padding:10px 8px;font-size:14px}
+.send input#ci{flex:1;min-width:0;background:none;border:0;outline:0;padding:10px 8px;font-size:16px}
 .send input::placeholder{color:#6b6b74}
 .send .ic{flex:none;width:34px;height:34px;display:grid;place-items:center;border-radius:50%;color:#8b8b94;transition:background .15s,color .15s}
 .send .ic:hover:not(:disabled){background:#ffffff12;color:#fff}
@@ -120,14 +117,13 @@ img.emoji{height:1.3em;width:1.3em;vertical-align:-.28em;margin:0 .04em}
 .info>div:first-child{min-width:0;flex:1 1 320px}
 .info h1{font:600 clamp(28px,3.6vw,44px)/1.05 var(--sans);letter-spacing:-.035em}
 .info p{color:var(--mut);max-width:58ch;margin-top:10px}
-.stats{display:inline-flex;align-items:center;padding:4px;border-radius:99px;background:#ffffff0f;box-shadow:inset 0 1px 0 #ffffff0f;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.stats{display:inline-flex;align-items:center;padding:4px;border-radius:99px;background:#ffffff14}
 .stats .chip{position:relative;display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 18px;border-radius:99px;font-size:14px;font-weight:500;color:#d4d4d8;font-variant-numeric:tabular-nums;white-space:nowrap;background:none;transition:background .15s,color .15s}
 .stats .chip svg{width:18px;height:18px;opacity:.85}
 .stats #chipLive:after,.stats #views:after{content:"";position:absolute;right:-1px;top:11px;bottom:11px;width:1px;background:#ffffff1f}
 .stats button.chip:hover{background:#ffffff14;color:#fff}
 .stats #lk.on{color:#ff5a64}
-.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);animation:ping 1.6s infinite}
-@keyframes ping{0%{box-shadow:0 0 0 0 #e50914cc}70%,100%{box-shadow:0 0 0 9px #e5091400}}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red)}
 .pop{animation:pop .45s}
 @keyframes pop{40%{transform:scale(1.5) rotate(-8deg)}}
 
@@ -135,13 +131,13 @@ img.emoji{height:1.3em;width:1.3em;vertical-align:-.28em;margin:0 .04em}
 #comments{grid-column:1;grid-row:3;margin-top:56px;max-width:820px}
 #comments h2{font-size:20px;font-weight:600;letter-spacing:-.02em;margin-bottom:16px}
 .cf{display:flex;gap:8px;margin-bottom:20px}
-#ct{flex:1;min-width:0;background:var(--panel);border:0;border-radius:99px;padding:12px 18px;outline:0}
+#ct{flex:1;min-width:0;background:var(--panel);border:0;border-radius:99px;padding:12px 18px;outline:0;font-size:16px}
 #ct:focus{box-shadow:0 0 0 2px #e5091466}
 #cs{background:var(--red);border-radius:99px;padding:0 22px;font-weight:600}
 .c{padding:14px 0;border-top:1px solid var(--hair)}.c small{color:var(--mut);margin-left:8px}.c p{margin-top:2px;word-break:break-word;color:#d4d4d8}
 .lock{color:var(--mut);padding:16px 18px;background:var(--panel);border-radius:12px;margin-bottom:20px}
 
-#lb{position:fixed;inset:0;z-index:90;background:#09090Be6;display:grid;place-items:center;cursor:zoom-out;backdrop-filter:blur(8px)}
+#lb{position:fixed;inset:0;z-index:90;background:#09090Bf2;display:grid;place-items:center;cursor:zoom-out}
 #lb img{max-width:92vw;max-height:90vh;border-radius:12px}
 
 @media(max-width:960px){
@@ -150,8 +146,10 @@ img.emoji{height:1.3em;width:1.3em;vertical-align:-.28em;margin:0 .04em}
   .chat{height:480px}
   .info{margin-top:12px}
   .stats{align-self:flex-start}
+  .pw:before{display:none}
+  .bar{padding-top:40px}
 }
-@media(prefers-reduced-motion:reduce){#intro b,#intro i{animation-duration:1.2s}#cover:after{animation:none}}
+@media(prefers-reduced-motion:reduce){#intro b,#intro i{animation-duration:1.2s}}
 </style>
 </head>
 <body>
@@ -227,7 +225,7 @@ img.emoji{height:1.3em;width:1.3em;vertical-align:-.28em;margin:0 .04em}
 const CONFIG={
   title:"Balbir Army: Ghostxday",
   description:"A MorFlix original, made by Raunak Kumar.",
-  premiere:"2026-11-12T21:35:00+05:30",   // 8:15 PM IST. Change the DATE to your premiere day.
+  premiere:"2026-11-12T21:40:00+05:30",   // 9:40 PM IST. Change the DATE to your premiere day.
   durationSec:null,                        // optional: movie length in seconds (e.g. 990) as a safety net
   poster:"",                               // optional image URL for the countdown screen
   tudumUrl:"",                             // optional: your own sound file, else a synthesized tudum plays
@@ -250,7 +248,7 @@ let name='',off=0;
 const now=()=>TEST?Date.now():Date.now()+off;
 const P=TEST?Date.now()+25000:Date.parse(CONFIG.premiere);
 const v=$('#v'),seek=$('#seek'),player=$('#player');
-let dur=CONFIG.durationSec||0,ph='',follow=true,ready=false,drag=false,resume=null,resumePlay=true,qi=0,fbMode=false,errs=0,views=0,likes=0,liked=false;
+let dur=CONFIG.durationSec||0,ph='',follow=true,ready=false,drag=false,resume=null,resumePlay=true,qi=0,fbMode=false,errs=0,views=0,likes=0,liked=false,lastBg='',lastTm='',lastCd='';
 
 const fmt=s=>{s=Math.max(0,Math.floor(s||0));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return(h?h+':'+String(m).padStart(2,'0'):m)+':'+String(x).padStart(2,'0')};
 const hms=s=>{const d=Math.floor(s/86400);s%=86400;const p=n=>String(n).padStart(2,'0');return(d?d+'d ':'')+p(Math.floor(s/3600))+':'+p(Math.floor(s%3600/60))+':'+p(s%60)};
@@ -269,7 +267,7 @@ $('#gf').addEventListener('submit',e=>{
   $('#gate').hidden=true;$('#app').hidden=false;$('#intro').hidden=false;tudum();
   setTimeout(setup,350);
   setTimeout(()=>{ready=true;if(phase()==='live'&&v.readyState>0)goLive()},3000);
-  setTimeout(()=>$('#intro').remove(),3500);
+  setTimeout(()=>$('#intro').remove(),3100);
 });
 function tudum(){
   try{if(CONFIG.tudumUrl){new Audio(CONFIG.tudumUrl).play();return}
@@ -292,7 +290,7 @@ function setup(){
   $('#qm').innerHTML='';S.forEach((s,i)=>{const b=document.createElement('button');b.textContent=s.label;b.onclick=()=>{$('#qm').hidden=true;if(i!==qi&&!fbMode){const t=follow&&phase()==='live'?-1:v.currentTime;setSrc(i,t,!v.paused||t===-1)}};$('#qm').appendChild(b)});
   if(S.length<2)$('#qb').hidden=S.length===0;
   if(S.length)setSrc(0,null,false);else{$('#note').hidden=false;$('#note').classList.add('standby');$('#note').textContent='STREAM STANDBY'}
-  boot();tick();setInterval(tick,500);
+  boot();tick();setInterval(tick,1000);
 }
 function setSrc(i,t,pl){qi=i;resume=t;resumePlay=pl;$('#qb').innerHTML=ic('gear')+S[i].label;[...$('#qm').children].forEach((b,k)=>b.className=k===i?'cur':'');v.src=direct(S[i].url);v.load()}
 
@@ -323,7 +321,7 @@ document.addEventListener('keydown',e=>{if(/INPUT|TEXTAREA/.test(e.target.tagNam
   if(e.key===' '){e.preventDefault();toggle()}else if(e.key==='f')$('#fs').click();else if(e.key==='m')$('#mu').click();
   else if(e.key==='ArrowLeft'){follow=false;v.currentTime-=5}else if(e.key==='ArrowRight'){follow=false;v.currentTime=Math.min(v.currentTime+5,phase()==='live'?edge():dur)}});
 let idleT;const wake=()=>{player.classList.remove('idle');clearTimeout(idleT);idleT=setTimeout(()=>{if(!v.paused)player.classList.add('idle')},2800)};
-['mousemove','touchstart','keydown'].forEach(ev=>player.addEventListener(ev,wake));
+['mousemove','touchstart','keydown'].forEach(ev=>player.addEventListener(ev,wake,{passive:true}));
 
 function onPhase(p){
   $('#cover').hidden=p!=='before';if(!fbMode)$('#bar').hidden=p==='before';
@@ -338,26 +336,26 @@ function onPhase(p){
 }
 function tick(){try{
   const e=edge(),p=phase();if(p!==ph){ph=p;onPhase(p)}
-  if(p==='before'){$('#cd').innerHTML=cdHTML(Math.ceil(-e));return}
+  if(p==='before'){const h=cdHTML(Math.ceil(-e));if(h!==lastCd){lastCd=h;$('#cd').innerHTML=h}return}
   if(fbMode){$('#note').textContent=p==='live'?'Live position is '+fmt(e)+'. Drag the timeline there to join in sync.':'';$('#note').hidden=p!=='live';return}
   if(!v.readyState)return;
   const t=v.currentTime,le=p==='live'?Math.min(e,dur||e):dur;
   if(p==='live'){
     if(t>le+1.5)v.currentTime=le;
-    else if(follow&&!v.paused&&!v.seeking&&le-t>4)v.currentTime=le;
-    $('#live').className=le-t<6?'on':'';
+    /* only re-sync when playback is healthy and far off: seeking while buffering is what caused the lag */
+    else if(follow&&!v.paused&&!v.seeking&&v.readyState>=3&&le-t>15)v.currentTime=le;
+    const cls=le-t<12?'on':'';if($('#live').className!==cls)$('#live').className=cls;
   }
   if(!drag)seek.value=t;
-  const a=t/(dur||1)*100,b=p==='live'?Math.min(le/(dur||1)*100,100):100;
-  seek.style.background=`linear-gradient(90deg,#e50914 ${a}%,#fff6 ${a}% ${b}%,#fff2 ${b}%)`;
-  $('#tm').textContent=fmt(t)+' / '+fmt(dur);
+  const a=(t/(dur||1)*100).toFixed(1),b=(p==='live'?Math.min(le/(dur||1)*100,100):100).toFixed(1);
+  const bg=`linear-gradient(90deg,#e50914 ${a}%,#fff6 ${a}% ${b}%,#fff2 ${b}%)`;
+  if(bg!==lastBg){lastBg=bg;seek.style.background=bg}
+  const tm=fmt(t)+' / '+fmt(dur);if(tm!==lastTm){lastTm=tm;$('#tm').textContent=tm}
 }catch(err){}}
 
-/* ---------- realtime (serverless): free public MQTT brokers, zero setup ----------
-   Everyone who opens the page joins the same room. Chat, likes, views and the live count
-   travel through public brokers; history is kept in each browser and in a retained snapshot. */
+/* ---------- realtime ---------- */
 const ROOM='mf/'+CONFIG.room+(TEST?'-test':''),T_EV=ROOM+'/ev',T_ST=ROOM+'/state',LKEY='mf_state_'+ROOM;
-const BROKERS=['wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt','wss://test.mosquitto.org:8081'];
+const BROKERS=['wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt'];
 let fdb=null;try{if(window.firebase&&CONFIG.firebase.databaseURL){firebase.initializeApp(CONFIG.firebase);fdb=firebase.database()}}catch(e){fdb=null}
 const fref=p=>fdb.ref((TEST?'test/':'main/')+p);
 const H={chat:[],cmts:[],likes:new Map(),views:new Set()},seen=new Set(),peers=new Map(),links=[];
@@ -375,7 +373,8 @@ try{const o=JSON.parse(ls.get(LKEY)||'null');if(o){
 
 const renderViews=()=>$('#views').innerHTML=ic('eye')+'<span>'+views.toLocaleString()+(views===1?' view':' views')+'</span>';
 const renderLike=()=>{$('#lk').className='chip'+(liked?' on':'');$('#lk').innerHTML=ic(liked?'heartF':'heart')+'<span>'+likes+'</span>'};
-function refresh(){views=H.views.size;likes=[...H.likes.values()].filter(x=>x.on).length;const me=H.likes.get(uid);liked=!!(me&&me.on);renderViews();renderLike()}
+let refT=0;
+function refresh(){clearTimeout(refT);refT=setTimeout(()=>{views=H.views.size;likes=[...H.likes.values()].filter(x=>x.on).length;const me=H.likes.get(uid);liked=!!(me&&me.on);renderViews();renderLike()},120)}
 function applyLike(u,on,ts){if(typeof u!=='string'||!Number.isFinite(+ts))return;const o=H.likes.get(u);if(!o||+ts>o.ts)H.likes.set(u,{on:!!on,ts:+ts})}
 function addMsg(m,mine){if(!m||(!m.t&&!m.img))return;const l=$('#msgs'),near=l.scrollHeight-l.scrollTop-l.clientHeight<140;
   const d=document.createElement('div');d.className='m'+(mine?' me':'');const n=m.n||'?';
@@ -386,12 +385,12 @@ function addMsg(m,mine){if(!m||(!m.t&&!m.img))return;const l=$('#msgs'),near=l.s
     im.onclick=()=>{$('#lb').innerHTML='';const c=new Image();c.src=m.img;$('#lb').appendChild(c);$('#lb').hidden=false};
     im.onload=()=>{if(near)l.scrollTop=l.scrollHeight};w.appendChild(im)}
   d.append(a,w);l.appendChild(d);em(s);
-  while(l.children.length>120)l.firstChild.remove();if(near)l.scrollTop=l.scrollHeight}
+  while(l.children.length>60)l.firstChild.remove();if(near)l.scrollTop=l.scrollHeight}
 function addCmt(m){if(!m||!m.t)return;const d=document.createElement('div');d.className='c';
   const b=document.createElement('b'),s=document.createElement('small'),p=document.createElement('p');
   b.textContent=m.n;b.style.color=hue(m.n);s.textContent=ago(m.ts||now());p.textContent=m.t;d.append(b,s,p);$('#clist').prepend(d);em(d)}
-function renderChat(){const l=$('#msgs');l.innerHTML='';addMsg({n:'MorFlix',t:'Welcome, '+name+'. The room is open.'});H.chat.forEach(m=>addMsg(m,m.u===uid));l.scrollTop=l.scrollHeight}
-function renderCmts(){$('#clist').innerHTML='';H.cmts.forEach(addCmt);$('#cth').textContent=H.cmts.length+' Comments'}
+function renderChat(){const l=$('#msgs');l.innerHTML='';addMsg({n:'MorFlix',t:'Welcome, '+name+'. The room is open.'});H.chat.slice(-60).forEach(m=>addMsg(m,m.u===uid));l.scrollTop=l.scrollHeight}
+function renderCmts(){$('#clist').innerHTML='';H.cmts.slice(-100).forEach(addCmt);$('#cth').textContent=H.cmts.length+' Comments'}
 function mergeChat(list){const last=H.chat.length?H.chat[H.chat.length-1].ts:-1,add=[];
   for(const x of list){const m=norm(x);if(!m||seen.has(m.id))continue;seen.add(m.id);H.chat.push(m);add.push(m)}
   if(!add.length)return;H.chat.sort(byTs);if(H.chat.length>200)H.chat=H.chat.slice(-200);
@@ -406,7 +405,7 @@ const lacks=d=>{const c=new Set((d.chat||[]).map(m=>m&&m.id)),k=new Set((d.cmts|
 
 let saveT=0,snapT=0;
 function save(){clearTimeout(saveT);saveT=setTimeout(()=>{let n=0;const keep=H.chat.slice(-100).reverse().map(m=>{if(m.img&&n++>=6){const r={...m};delete r.img;r.t=r.t||'📷 Image';return r}return m}).reverse();
-  ls.set(LKEY,JSON.stringify({chat:keep,cmts:H.cmts.slice(-100),likes:Object.fromEntries(H.likes),views:[...H.views]}))},400)}
+  ls.set(LKEY,JSON.stringify({chat:keep,cmts:H.cmts.slice(-100),likes:Object.fromEntries(H.likes),views:[...H.views]}))},1500)}
 function snapNow(){try{const st=m=>({id:m.id,n:m.n,t:m.t||'📷 Image',u:m.u,ts:m.ts});
   const s=JSON.stringify({chat:H.chat.slice(-60).map(st),cmts:H.cmts.slice(-60).map(st),likes:Object.fromEntries(H.likes),views:[...H.views]});
   links.forEach(c=>c.connected&&c.publish(T_ST,s,{retain:true}))}catch(e){}}
@@ -433,13 +432,13 @@ function connectFB(){const e=$('#cst');
   fref('presence').on('value',s=>$('#vw').textContent=Math.max(1,s.numChildren()));
   fref('views').on('value',s=>{Object.keys(s.val()||{}).forEach(u=>H.views.add(u));refresh();save()});
   fref('likes').on('value',s=>{const o=s.val()||{};Object.entries(o).forEach(([u,x])=>applyLike(u,x.on,x.ts));refresh();save()});
-  fref('chat').limitToLast(80).on('child_added',s=>mergeChat([s.val()]));
+  fref('chat').limitToLast(60).on('child_added',s=>mergeChat([s.val()]));
   fref('comments').limitToLast(100).on('child_added',s=>mergeCmts([s.val()]))}
 function connect(){if(fdb)return connectFB();status();if(!window.mqtt)return;
   BROKERS.forEach(u=>{try{const c=mqtt.connect(u,{clientId:'mf_'+cid+Math.random().toString(36).slice(2,6),clean:true,reconnectPeriod:4000,connectTimeout:10000,keepalive:30});
     c.on('connect',()=>{c.subscribe([T_EV,T_ST],{qos:0});c.publish(T_EV,JSON.stringify({k:'hi',c:cid}));status();snap(4000)});
     c.on('message',onMsg);c.on('close',status);c.on('error',()=>{});links.push(c)}catch(e){}});
-  setInterval(hb,10000);setInterval(watching,2000);
+  setInterval(hb,15000);setInterval(watching,3000);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)hb()});
   addEventListener('pagehide',()=>send({k:'bye',c:cid}))}
 /* correct this device's clock against the host's HTTP date so everyone starts in sync */
@@ -453,7 +452,7 @@ const post=(path,text,img)=>{const t=clean(text).slice(0,path==='chat'?200:300);
   send({k:path==='chat'?'chat':'cmt',m},1);if(fdb)fref(path).push(m).catch(()=>{});save();snap(1200);return true};
 $('#cf').addEventListener('submit',e=>{e.preventDefault();if(post('chat',$('#ci').value))$('#ci').value='';$('#pk').hidden=true});
 $('#cform').addEventListener('submit',e=>{e.preventDefault();if(post('comments',$('#ct').value))$('#ct').value=''});
-$('#lk').onclick=()=>{const on=!liked,ts=now();H.likes.set(uid,{on,ts});send({k:'like',u:uid,on,ts},1);if(fdb)fref('likes/'+uid).set({on,ts});refresh();if(on)$('#lk svg').classList.add('pop');save();snap(1500)};
+$('#lk').onclick=()=>{const on=!liked,ts=now();H.likes.set(uid,{on,ts});send({k:'like',u:uid,on,ts},1);if(fdb)fref('likes/'+uid).set({on,ts});refresh();if(on)setTimeout(()=>{const s=$('#lk svg');s&&s.classList.add('pop')},150);save();snap(1500)};
 /* ---------- icons, emoji, images ---------- */
 const st='fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
 const I={play:'<path d="M8 5v14l11-7z"/>',pause:'<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>',
